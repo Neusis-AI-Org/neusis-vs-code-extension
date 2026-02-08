@@ -149,6 +149,7 @@ export type ExtensionToWebviewMessage =
   | { type: 'resultMessage'; result: string; cost: number; duration: number; isError: boolean }
   | { type: 'sessionInit'; model: string; tools: string[]; sessionId: string }
   | { type: 'stateChange'; state: 'idle' | 'waiting' | 'streaming' | 'error' }
+  | { type: 'errorMessage'; message: string }
   | { type: 'clear' };
 
 /** Messages sent from webview to extension */

@@ -160,10 +160,16 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
 
     this.claudeProcess.on('error', (err: Error) => {
       console.error('[Neusis Code]', err.message);
+      this.postMessage({ type: 'errorMessage', message: err.message });
+      this.postMessage({ type: 'stateChange', state: 'error' });
     });
 
     this.claudeProcess.on('exit', (code: number | null) => {
       if (code !== 0 && code !== null) {
+        this.postMessage({
+          type: 'errorMessage',
+          message: `Claude process exited with code ${code}. Make sure the Claude CLI is installed and available in your PATH.`,
+        });
         this.postMessage({ type: 'stateChange', state: 'error' });
       } else {
         this.postMessage({ type: 'stateChange', state: 'idle' });
@@ -346,6 +352,20 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
       margin-bottom: 4px;
       white-space: pre-wrap;
       opacity: 0.8;
+    }
+
+    /* ─── Error message ─── */
+    .message-error {
+      align-self: flex-start;
+      background: rgba(255, 68, 68, 0.1);
+      border-left: 3px solid var(--vscode-errorForeground, #f44);
+      color: var(--vscode-errorForeground, #f44);
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      width: 100%;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
 
     /* ─── Result bar ─── */
@@ -659,6 +679,12 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
         case 'resultMessage': {
           currentStreamEl = null;
           streamBuffer = '';
+          if (msg.isError && msg.result) {
+            const errMsg = document.createElement('div');
+            errMsg.className = 'message message-error';
+            errMsg.textContent = msg.result;
+            messagesEl.appendChild(errMsg);
+          }
           const bar = document.createElement('div');
           bar.className = 'result-bar' + (msg.isError ? ' error' : '');
           const durationSec = (msg.duration / 1000).toFixed(1);
@@ -667,6 +693,18 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
             '<span>' + (msg.isError ? 'Error' : 'Done') + ' &middot; ' + durationSec + 's</span>' +
             '<span>' + costStr + '</span>';
           messagesEl.appendChild(bar);
+          scrollToBottom();
+          break;
+        }
+
+        case 'errorMessage': {
+          hideWelcome();
+          currentStreamEl = null;
+          streamBuffer = '';
+          const errEl = document.createElement('div');
+          errEl.className = 'message message-error';
+          errEl.textContent = msg.message;
+          messagesEl.appendChild(errEl);
           scrollToBottom();
           break;
         }
@@ -710,6 +748,13 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
         sendBtn.classList.add('stop-btn');
         sendBtn.disabled = false;
         userInput.disabled = true;
+      } else if (state === 'error') {
+        statusBar.classList.remove('visible');
+        sendBtn.innerHTML = '&#x27A4;';
+        sendBtn.classList.remove('stop-btn');
+        sendBtn.disabled = false;
+        userInput.disabled = false;
+        userInput.focus();
       } else {
         statusBar.classList.remove('visible');
         sendBtn.innerHTML = '&#x27A4;';
