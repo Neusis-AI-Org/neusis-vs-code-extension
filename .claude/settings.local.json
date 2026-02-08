@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"d:\\\\my-personal\\\\neuis.ai\\\\code-v2\"\" && echo \"---\" && ls -la \"d:my-personalneuis.ai \")",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:gist.github.com)",
+      "WebFetch(domain:docs.anthropic.com)"
+    ]
+  }
+}
