@@ -1,5 +1,9 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
 import { ClaudeProcess } from './claude-process';
+import { ApprovalServer, ToolApprovalRequest } from './approval-server';
 import {
   ClaudeSystemMessage,
   ClaudeAssistantMessage,
@@ -9,6 +13,7 @@ import {
   ExtensionToWebviewMessage,
   WebviewToExtensionMessage,
   ContentDelta,
+  PermissionMode,
 } from './types';
 
 export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
@@ -16,6 +21,10 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
 
   private webviewView?: vscode.WebviewView;
   private claudeProcess: ClaudeProcess;
+  private approvalServer: ApprovalServer | null = null;
+  private pendingApprovals = new Map<string, (approved: boolean) => void>();
+  private approvalCounter = 0;
+  private hookDir: string | null = null;
 
   constructor(private readonly extensionUri: vscode.Uri) {
     this.claudeProcess = new ClaudeProcess();
@@ -40,8 +49,14 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
       this.handleWebviewMessage(msg);
     });
 
+    // Sync current permission mode to the webview dropdown
+    const config = vscode.workspace.getConfiguration('neusis-code');
+    const currentMode = config.get<PermissionMode>('permissionMode', 'autoEdit');
+    this.postMessage({ type: 'modeSync', mode: currentMode });
+
     webviewView.onDidDispose(() => {
       this.claudeProcess.stop();
+      this.cleanupApprovalSetup();
     });
   }
 
@@ -67,7 +82,46 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
       case 'newChat':
         this.newChat();
         break;
+      case 'modeChange':
+        this.handleModeChange(msg.mode);
+        break;
+      case 'approvalResponse':
+        this.handleApprovalResponse(msg.requestId, msg.approved);
+        break;
     }
+  }
+
+  private handleModeChange(mode: PermissionMode): void {
+    const config = vscode.workspace.getConfiguration('neusis-code');
+    config.update('permissionMode', mode, vscode.ConfigurationTarget.Global);
+
+    // If a conversation is active, restart with the new mode on next message.
+    // Stop current process so next message starts fresh with new permissions.
+    if (this.claudeProcess.isRunning) {
+      this.claudeProcess.stop();
+      this.postMessage({ type: 'stateChange', state: 'idle' });
+    }
+  }
+
+  private handleApprovalResponse(requestId: string, approved: boolean): void {
+    const resolver = this.pendingApprovals.get(requestId);
+    if (resolver) {
+      resolver(approved);
+      this.pendingApprovals.delete(requestId);
+    }
+  }
+
+  private requestApprovalFromWebview(_request: ToolApprovalRequest, detail: string, toolName: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const requestId = `approval-${++this.approvalCounter}`;
+      this.pendingApprovals.set(requestId, resolve);
+      this.postMessage({
+        type: 'approvalRequest',
+        requestId,
+        toolName,
+        detail,
+      });
+    });
   }
 
   private handleSendMessage(text: string): void {
@@ -81,15 +135,143 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
 
     // If process isn't running, start it and send the first message
     if (!this.claudeProcess.isRunning) {
-      this.claudeProcess.start(cwd);
-      this.postMessage({ type: 'stateChange', state: 'waiting' });
-      // Small delay to let the process initialize before sending
-      setTimeout(() => {
-        this.claudeProcess.sendMessage(text);
-      }, 500);
+      const config = vscode.workspace.getConfiguration('neusis-code');
+      const mode = config.get<string>('permissionMode', 'autoEdit');
+
+      this.startProcess(cwd, mode).then(() => {
+        this.postMessage({ type: 'stateChange', state: 'waiting' });
+        // Small delay to let the process initialize before sending
+        setTimeout(() => {
+          this.claudeProcess.sendMessage(text);
+        }, 500);
+      }).catch((err: Error) => {
+        vscode.window.showErrorMessage(`Failed to start Claude: ${err.message}`);
+      });
     } else {
       this.postMessage({ type: 'stateChange', state: 'waiting' });
       this.claudeProcess.sendMessage(text);
+    }
+  }
+
+  private async startProcess(cwd: string, mode: string): Promise<void> {
+    switch (mode) {
+      case 'planFirst':
+        this.claudeProcess.start(cwd, 'plan');
+        break;
+      case 'autoEdit':
+        this.claudeProcess.start(cwd, 'bypassPermissions');
+        break;
+      case 'askFirst': {
+        const settingsPath = await this.ensureApprovalSetup();
+        this.claudeProcess.start(cwd, 'bypassPermissions', settingsPath);
+        break;
+      }
+      default:
+        this.claudeProcess.start(cwd, 'bypassPermissions');
+    }
+  }
+
+  /**
+   * Set up the approval server and hook files for "Ask before edits" mode.
+   * Returns the path to the generated settings JSON file.
+   */
+  private async ensureApprovalSetup(): Promise<string> {
+    // Start the approval HTTP server if not already running
+    if (!this.approvalServer) {
+      this.approvalServer = new ApprovalServer((request, detail) => {
+        return this.requestApprovalFromWebview(request, detail, request.toolName);
+      });
+      await this.approvalServer.start();
+    }
+
+    // Create temp directory for hook files if needed
+    if (!this.hookDir) {
+      this.hookDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neusis-code-'));
+    }
+
+    const port = this.approvalServer.port;
+    const hookScriptPath = path.join(this.hookDir, 'approval-hook.js');
+    const settingsPath = path.join(this.hookDir, 'settings.json');
+
+    // Write the hook script
+    fs.writeFileSync(hookScriptPath, this.generateHookScript(port), 'utf-8');
+
+    // Write the settings JSON with hook configuration
+    const settings = {
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: '',
+            hooks: [
+              {
+                type: 'command',
+                command: `node "${hookScriptPath.replace(/\\/g, '/')}"`,
+              },
+            ],
+          },
+        ],
+      },
+    };
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+
+    return settingsPath;
+  }
+
+  private generateHookScript(port: number): string {
+    return `const http = require('http');
+let input = '';
+process.stdin.on('data', (c) => { input += c; });
+process.stdin.on('end', () => {
+  let data;
+  try { data = JSON.parse(input); } catch { process.exit(0); }
+  const toolName = data.tool_name || '';
+  const safeTools = ['Read', 'Glob', 'Grep', 'LS', 'Task', 'TodoRead', 'TodoWrite'];
+  if (safeTools.includes(toolName)) { process.exit(0); }
+  const body = JSON.stringify({ toolName, toolInput: JSON.stringify(data.tool_input || {}) });
+  const req = http.request({
+    hostname: '127.0.0.1', port: ${port}, path: '/approve', method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+    timeout: 120000,
+  }, (res) => {
+    let rb = '';
+    res.on('data', (c) => { rb += c; });
+    res.on('end', () => {
+      try {
+        const result = JSON.parse(rb);
+        const out = { hookSpecificOutput: { hookEventName: 'PreToolUse',
+          permissionDecision: result.approved ? 'allow' : 'deny',
+          permissionDecisionReason: result.approved ? '' : 'User denied this tool use' } };
+        process.stdout.write(JSON.stringify(out));
+        process.exit(0);
+      } catch { process.exit(2); }
+    });
+  });
+  req.on('error', () => { process.exit(2); });
+  req.on('timeout', () => { req.destroy(); process.exit(2); });
+  req.write(body);
+  req.end();
+});
+`;
+  }
+
+  private cleanupApprovalSetup(): void {
+    // Deny any pending approval requests
+    for (const resolver of this.pendingApprovals.values()) {
+      resolver(false);
+    }
+    this.pendingApprovals.clear();
+
+    if (this.approvalServer) {
+      this.approvalServer.stop();
+      this.approvalServer = null;
+    }
+    if (this.hookDir) {
+      try {
+        fs.rmSync(this.hookDir, { recursive: true, force: true });
+      } catch {
+        // Best-effort cleanup
+      }
+      this.hookDir = null;
     }
   }
 
@@ -265,6 +447,28 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
       background: rgba(255,255,255,0.08);
     }
 
+    /* ─── Mode selector ─── */
+    .mode-select {
+      background: var(--input-bg);
+      color: var(--input-fg);
+      border: 1px solid var(--input-border);
+      border-radius: 4px;
+      padding: 2px 4px;
+      font-family: var(--font-family);
+      font-size: 11px;
+      cursor: pointer;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      padding-right: 16px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath fill='%23888' d='M0 2l4 4 4-4z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 4px center;
+    }
+    .mode-select:focus {
+      border-color: var(--vscode-focusBorder, var(--button-bg));
+    }
+
     /* ─── Messages area ─── */
     .messages {
       flex: 1;
@@ -352,6 +556,88 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
       margin-bottom: 4px;
       white-space: pre-wrap;
       opacity: 0.8;
+    }
+
+    /* ─── Approval card ─── */
+    .approval-card {
+      border: 1px solid var(--vscode-editorWarning-foreground, #cca700);
+      border-left: 3px solid var(--vscode-editorWarning-foreground, #cca700);
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin: 4px 0;
+      background: var(--code-bg);
+    }
+    .approval-card.resolved {
+      opacity: 0.7;
+    }
+    .approval-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.9em;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .approval-header .approval-icon {
+      color: var(--vscode-editorWarning-foreground, #cca700);
+    }
+    .approval-header .approval-tool-name {
+      color: var(--link-fg);
+    }
+    .approval-detail {
+      font-family: var(--vscode-editor-font-family, monospace);
+      font-size: 0.85em;
+      background: rgba(0,0,0,0.15);
+      border-radius: 4px;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 200px;
+      overflow-y: auto;
+      line-height: 1.4;
+    }
+    .approval-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .approval-btn {
+      border: none;
+      border-radius: 4px;
+      padding: 5px 14px;
+      font-family: var(--font-family);
+      font-size: 0.85em;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .approval-btn-allow {
+      background: var(--button-bg);
+      color: var(--button-fg);
+    }
+    .approval-btn-allow:hover {
+      background: var(--button-hover-bg);
+    }
+    .approval-btn-deny {
+      background: rgba(255,255,255,0.08);
+      color: var(--fg);
+      border: 1px solid var(--border);
+    }
+    .approval-btn-deny:hover {
+      background: rgba(255,255,255,0.14);
+    }
+    .approval-resolved-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85em;
+      font-weight: 500;
+    }
+    .approval-resolved-label.allowed {
+      color: var(--vscode-testing-iconPassed, #73c991);
+    }
+    .approval-resolved-label.denied {
+      color: var(--vscode-errorForeground, #f44);
     }
 
     /* ─── Error message ─── */
@@ -482,6 +768,11 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
   <div class="header">
     <span class="header-title">Neusis Code</span>
     <div class="header-actions">
+      <select class="mode-select" id="modeSelect" title="Permission mode">
+        <option value="askFirst">Ask First</option>
+        <option value="autoEdit">Auto Edit</option>
+        <option value="planFirst">Plan First</option>
+      </select>
       <button class="header-btn" id="newChatBtn" title="New Chat">+</button>
     </div>
   </div>
@@ -517,12 +808,14 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
     const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
     const newChatBtn = document.getElementById('newChatBtn');
+    const modeSelect = document.getElementById('modeSelect');
     const statusBar = document.getElementById('statusBar');
     const statusText = document.getElementById('statusText');
 
     let state = 'idle'; // idle | waiting | streaming
     let currentStreamEl = null;
     let streamBuffer = '';
+    let hasReceivedStreamText = false;
 
     // ─── Auto-resize textarea ───
     userInput.addEventListener('input', () => {
@@ -548,6 +841,10 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
 
     newChatBtn.addEventListener('click', () => {
       vscode.postMessage({ type: 'newChat' });
+    });
+
+    modeSelect.addEventListener('change', () => {
+      vscode.postMessage({ type: 'modeChange', mode: modeSelect.value });
     });
 
     function handleSend() {
@@ -624,6 +921,7 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
 
       switch (msg.type) {
         case 'streamText': {
+          hasReceivedStreamText = true;
           const el = ensureStreamElement();
           streamBuffer += msg.text;
           el.innerHTML = renderMarkdown(streamBuffer);
@@ -632,9 +930,24 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
         }
 
         case 'assistantMessage': {
-          // Complete assistant message - finalize streaming element
+          // If streaming didn't produce any text, render the full message content
+          if (!hasReceivedStreamText && msg.content) {
+            hideWelcome();
+            const text = msg.content
+              .filter(b => b.type === 'text')
+              .map(b => b.text)
+              .join('');
+            if (text) {
+              const el = document.createElement('div');
+              el.className = 'message message-assistant';
+              el.innerHTML = renderMarkdown(text);
+              messagesEl.appendChild(el);
+              scrollToBottom();
+            }
+          }
           currentStreamEl = null;
           streamBuffer = '';
+          hasReceivedStreamText = false;
           break;
         }
 
@@ -709,8 +1022,60 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
           break;
         }
 
+        case 'approvalRequest': {
+          hideWelcome();
+          currentStreamEl = null;
+          streamBuffer = '';
+          const card = document.createElement('div');
+          card.className = 'approval-card';
+          card.id = 'approval-' + msg.requestId;
+
+          const header = document.createElement('div');
+          header.className = 'approval-header';
+          header.innerHTML =
+            '<span class="approval-icon">&#x26A0;</span>' +
+            '<span>Claude wants to use: </span>' +
+            '<span class="approval-tool-name">' + escapeHtml(msg.toolName) + '</span>';
+          card.appendChild(header);
+
+          const detail = document.createElement('div');
+          detail.className = 'approval-detail';
+          detail.textContent = msg.detail;
+          card.appendChild(detail);
+
+          const actions = document.createElement('div');
+          actions.className = 'approval-actions';
+
+          const denyBtn = document.createElement('button');
+          denyBtn.className = 'approval-btn approval-btn-deny';
+          denyBtn.textContent = 'Deny';
+          denyBtn.addEventListener('click', () => {
+            resolveApproval(msg.requestId, false, card);
+          });
+
+          const allowBtn = document.createElement('button');
+          allowBtn.className = 'approval-btn approval-btn-allow';
+          allowBtn.textContent = 'Allow';
+          allowBtn.addEventListener('click', () => {
+            resolveApproval(msg.requestId, true, card);
+          });
+
+          actions.appendChild(denyBtn);
+          actions.appendChild(allowBtn);
+          card.appendChild(actions);
+
+          messagesEl.appendChild(card);
+          scrollToBottom();
+          break;
+        }
+
         case 'sessionInit': {
           // Could show model info in header
+          break;
+        }
+
+        case 'modeSync': {
+          modeSelect.value = msg.mode;
           break;
         }
 
@@ -728,10 +1093,29 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
           }
           currentStreamEl = null;
           streamBuffer = '';
+          hasReceivedStreamText = false;
           break;
         }
       }
     });
+
+    function resolveApproval(requestId, approved, cardEl) {
+      vscode.postMessage({ type: 'approvalResponse', requestId, approved });
+      // Replace the card content with a resolved summary
+      cardEl.classList.add('resolved');
+      const header = cardEl.querySelector('.approval-header');
+      const toolName = header ? header.querySelector('.approval-tool-name')?.textContent || '' : '';
+      const label = approved ? 'Allowed' : 'Denied';
+      const labelClass = approved ? 'allowed' : 'denied';
+      const icon = approved ? '&#x2713;' : '&#x2717;';
+      cardEl.innerHTML =
+        '<div class="approval-header">' +
+          '<span class="approval-icon">&#x26A0;</span>' +
+          '<span class="approval-tool-name">' + escapeHtml(toolName) + '</span>' +
+          '<span class="approval-resolved-label ' + labelClass + '">&mdash; ' + label + ' ' + icon + '</span>' +
+        '</div>';
+      scrollToBottom();
+    }
 
     function updateUI() {
       if (state === 'waiting') {

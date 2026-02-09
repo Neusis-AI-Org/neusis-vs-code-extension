@@ -140,6 +140,9 @@ export interface ClaudeInputMessage {
 
 // ─── Webview messaging ───
 
+/** Permission mode identifiers */
+export type PermissionMode = 'askFirst' | 'autoEdit' | 'planFirst';
+
 /** Messages sent from extension to webview */
 export type ExtensionToWebviewMessage =
   | { type: 'streamText'; text: string }
@@ -150,10 +153,14 @@ export type ExtensionToWebviewMessage =
   | { type: 'sessionInit'; model: string; tools: string[]; sessionId: string }
   | { type: 'stateChange'; state: 'idle' | 'waiting' | 'streaming' | 'error' }
   | { type: 'errorMessage'; message: string }
+  | { type: 'approvalRequest'; requestId: string; toolName: string; detail: string }
+  | { type: 'modeSync'; mode: PermissionMode }
   | { type: 'clear' };
 
 /** Messages sent from webview to extension */
 export type WebviewToExtensionMessage =
   | { type: 'sendMessage'; text: string }
   | { type: 'stopGeneration' }
+  | { type: 'modeChange'; mode: PermissionMode }
+  | { type: 'approvalResponse'; requestId: string; approved: boolean }
   | { type: 'newChat' };

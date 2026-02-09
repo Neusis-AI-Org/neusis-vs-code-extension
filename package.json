@@ -32,6 +32,22 @@
         }
       ]
     },
+    "configuration": {
+      "title": "Neusis Code",
+      "properties": {
+        "neusis-code.permissionMode": {
+          "type": "string",
+          "enum": ["askFirst", "autoEdit", "planFirst"],
+          "enumDescriptions": [
+            "Ask for approval before each file write, edit, or command (modal dialog)",
+            "Automatically approve all tool operations without prompting (recommended)",
+            "Read-only mode — Claude can only read files, no modifications or commands"
+          ],
+          "default": "autoEdit",
+          "description": "Controls how Claude handles tool permissions."
+        }
+      }
+    },
     "commands": [
       {
         "command": "neusis-code.newChat",

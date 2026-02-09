@@ -37,8 +37,10 @@ export class ClaudeProcess extends EventEmitter {
   /**
    * Spawn the Claude Code CLI in streaming JSON mode.
    * @param cwd Working directory for the process
+   * @param permissionMode Permission mode for tool execution
+   * @param settingsPath Optional path to a settings JSON file (used for hooks)
    */
-  start(cwd: string): void {
+  start(cwd: string, permissionMode = 'acceptEdits', settingsPath?: string): void {
     if (this.proc) {
       this.stop();
     }
@@ -47,12 +49,19 @@ export class ClaudeProcess extends EventEmitter {
     this._sessionId = 'default';
     this._isRunning = true;
 
-    this.proc = spawn('claude', [
+    const args = [
       '-p',
       '--input-format', 'stream-json',
       '--output-format', 'stream-json',
       '--verbose',
-    ], {
+      '--permission-mode', permissionMode,
+    ];
+
+    if (settingsPath) {
+      args.push('--settings', settingsPath);
+    }
+
+    this.proc = spawn('claude', args, {
       cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: true,
@@ -65,7 +74,9 @@ export class ClaudeProcess extends EventEmitter {
     this.proc.stderr?.on('data', (chunk: Buffer) => {
       const text = chunk.toString('utf-8').trim();
       if (text) {
-        this.emit('error', new Error(`stderr: ${text}`));
+        // Claude CLI writes debug/info to stderr; only log it.
+        // Genuine errors are caught by the process 'error' and 'exit' handlers.
+        console.error('[ClaudeProcess stderr]', text);
       }
     });
 
