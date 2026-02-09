@@ -68,3 +68,4 @@ Webpack bundles [src/extension.ts](src/extension.ts) → `dist/extension.js` (ta
 - **Claude CLI**: Must be installed and on PATH. Invoked as `claude -p --input-format stream-json --output-format stream-json --verbose --permission-mode <mode>` with `shell: true` and workspace folder as `cwd`. The `--settings` flag is added when hooks are needed (Ask First mode).
 - **VS Code API**: Extension contributes an Activity Bar container (`neusis-code`), a webview view (`neusis-code.chatView`), two commands (`neusis-code.newChat`, `neusis-code.stopGeneration`), and one configuration setting (`neusis-code.permissionMode`). Activation: `onView:neusis-code.chatView`.
 - **CLI Permission Note**: The CLI in `-p` (pipe) mode has no interactive permission protocol over stdin/stdout. Permissions are controlled entirely via `--permission-mode` and `PreToolUse` hooks. The CLI's `stream-json` format does not send permission request messages.
+
