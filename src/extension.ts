@@ -26,6 +26,19 @@ export function activate(context: vscode.ExtensionContext): void {
       chatProvider.stopGeneration();
     }),
   );
+
+  // Accept/Reject file change commands (triggered by CodeLens in editor)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('neusis-code.acceptFileChanges', (filePath: string) => {
+      chatProvider.changeTracker.acceptFile(filePath);
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('neusis-code.rejectFileChanges', (filePath: string) => {
+      chatProvider.changeTracker.rejectFile(filePath);
+    }),
+  );
 }
 
 export function deactivate(): void {

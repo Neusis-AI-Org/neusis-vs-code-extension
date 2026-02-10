@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { ClaudeProcess } from './claude-process';
+import { ChangeTracker } from './change-tracker';
 import { ApprovalServer, ToolApprovalRequest } from './approval-server';
 import {
   ClaudeSystemMessage,
@@ -21,6 +22,7 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
 
   private webviewView?: vscode.WebviewView;
   private claudeProcess: ClaudeProcess;
+  public readonly changeTracker: ChangeTracker;
   private approvalServer: ApprovalServer | null = null;
   private pendingApprovals = new Map<string, (approved: boolean) => void>();
   private approvalCounter = 0;
@@ -28,6 +30,7 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
 
   constructor(private readonly extensionUri: vscode.Uri) {
     this.claudeProcess = new ClaudeProcess();
+    this.changeTracker = new ChangeTracker();
     this.setupProcessListeners();
   }
 
@@ -56,12 +59,14 @@ export class NeusisChatViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.onDidDispose(() => {
       this.claudeProcess.stop();
+      this.changeTracker.dispose();
       this.cleanupApprovalSetup();
     });
   }
 
   public newChat(): void {
     this.claudeProcess.stop();
+    this.changeTracker.clearDecorations();
     this.postMessage({ type: 'clear' });
     this.postMessage({ type: 'stateChange', state: 'idle' });
   }
@@ -324,6 +329,15 @@ process.stdin.on('end', () => {
         type: 'assistantMessage',
         content: msg.message.content,
       });
+
+      // Snapshot files before the CLI executes Edit/Write tools.
+      // The assistant event has the complete tool input (unlike content_block_start
+      // where input is streamed incrementally) and fires before tool execution.
+      for (const block of msg.message.content) {
+        if (block.type === 'tool_use' && (block.name === 'Edit' || block.name === 'Write') && block.input.file_path) {
+          this.changeTracker.snapshotFile(block.id, String(block.input.file_path));
+        }
+      }
     });
 
     this.claudeProcess.on('user', (msg: ClaudeUserMessage) => {
@@ -335,6 +349,9 @@ process.stdin.on('end', () => {
             content: block.content,
             isError: block.is_error,
           });
+
+          // Diff and decorate changed lines in the editor
+          this.changeTracker.onToolResult(block.tool_use_id);
         }
       }
     });

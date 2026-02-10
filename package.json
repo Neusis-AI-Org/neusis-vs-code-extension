@@ -56,6 +56,14 @@
       {
         "command": "neusis-code.stopGeneration",
         "title": "Neusis Code: Stop Generation"
+      },
+      {
+        "command": "neusis-code.acceptFileChanges",
+        "title": "Neusis Code: Accept File Changes"
+      },
+      {
+        "command": "neusis-code.rejectFileChanges",
+        "title": "Neusis Code: Reject File Changes"
       }
     ]
   },
