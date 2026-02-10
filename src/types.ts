@@ -148,7 +148,7 @@ export type ExtensionToWebviewMessage =
   | { type: 'streamText'; text: string }
   | { type: 'assistantMessage'; content: AssistantContentBlock[] }
   | { type: 'toolResult'; toolUseId: string; content: string; isError?: boolean }
-  | { type: 'toolUseStart'; id: string; name: string }
+  | { type: 'toolUseStart'; id: string; name: string; summary?: string }
   | { type: 'resultMessage'; result: string; cost: number; duration: number; isError: boolean }
   | { type: 'sessionInit'; model: string; tools: string[]; sessionId: string }
   | { type: 'stateChange'; state: 'idle' | 'waiting' | 'streaming' | 'error' }
