@@ -793,7 +793,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const bodyText = await extractBodyText(input, init, method);
       const proxied = await proxySessionMessageRequest({ path: suffixPath, headers, bodyText });
       const body = proxied.bodyBase64 ? decodeBase64(proxied.bodyBase64) : new Uint8Array();
-      const response = new Response(body, { status: proxied.status, headers: proxied.headers });
+      const response = new Response(body as any, { status: proxied.status, headers: proxied.headers });
       recordBootstrapFetch(targetUrl.pathname, response.ok);
       maybeHideLoadingOverlay();
       return response;
@@ -802,7 +802,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const bodyBase64 = await extractBodyBase64(input, init, method);
     const proxied = await proxyApiRequest({ method, path: suffixPath, headers, bodyBase64 });
     const body = proxied.bodyBase64 ? decodeBase64(proxied.bodyBase64) : new Uint8Array();
-    const response = new Response(body, { status: proxied.status, headers: proxied.headers });
+    const response = new Response(body as any, { status: proxied.status, headers: proxied.headers });
     recordBootstrapFetch(targetUrl.pathname, response.ok);
     maybeHideLoadingOverlay();
     return response;

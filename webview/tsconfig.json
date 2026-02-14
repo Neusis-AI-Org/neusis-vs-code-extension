@@ -3,10 +3,11 @@
   "compilerOptions": {
     "baseUrl": "..",
     "paths": {
-      "@/*": ["../ui/src/*"],
+      "@/*": ["./packages/ui/src/*"],
       "@vscode/*": ["./webview/*"],
-      "@openchamber/ui/*": ["../ui/src/*"]
+      "@openchamber/ui/lib/*": ["./packages/ui/src/lib/*"],
+      "@openchamber/ui/*": ["./packages/ui/src/*"]
     }
   },
-  "include": ["**/*"]
+  "include": ["**/*", "../packages/ui/src/**/*"]
 }

@@ -13,12 +13,13 @@
     "skipLibCheck": true,
     "noEmit": true,
     "baseUrl": ".",
-    "types": ["vite/client", "@types/dom-speech-recognition"],
+    "types": ["vite/client", "dom-speech-recognition"],
     "paths": {
-      "@/*": ["../ui/src/*"],
+      "@/*": ["./packages/ui/src/*"],
       "@vscode/*": ["./webview/*"],
-      "@openchamber/ui/*": ["../ui/src/*"]
+      "@openchamber/ui/lib/*": ["./packages/ui/src/lib/*"],
+      "@openchamber/ui/*": ["./packages/ui/src/*"]
     }
   },
-  "include": ["webview/**/*", "../ui/src/**/*"]
+  "include": ["webview/**/*", "./packages/ui/src/**/*"]
 }
