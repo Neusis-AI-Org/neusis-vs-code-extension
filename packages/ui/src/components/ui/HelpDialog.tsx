@@ -187,7 +187,7 @@ export const HelpDialog: React.FC = () => {
             Keyboard Shortcuts
           </DialogTitle>
           <DialogDescription>
-            Use these keyboard shortcuts to navigate OpenChamber efficiently
+            Use these keyboard shortcuts to navigate Neusis Code efficiently
           </DialogDescription>
         </DialogHeader>
 

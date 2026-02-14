@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(VITE_OPENCODE_URL=/api npx vite build:*)",
+      "Bash(bun add:*)",
+      "Bash(npm run build:*)"
+    ]
+  }
+}

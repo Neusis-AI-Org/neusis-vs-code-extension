@@ -372,7 +372,7 @@ export const GitHubSettings: React.FC = () => {
       {flow ? (
         <div className="space-y-3 rounded-lg border bg-background/50 p-3">
           <div className="space-y-1">
-            <div className="typography-ui-label text-foreground">Authorize OpenChamber</div>
+            <div className="typography-ui-label text-foreground">Authorize Neusis Code</div>
             <div className="typography-meta text-muted-foreground">
               In GitHub, enter this code:
             </div>

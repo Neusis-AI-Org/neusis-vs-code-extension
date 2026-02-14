@@ -637,7 +637,7 @@ export const ProvidersPage: React.FC = () => {
                     </Button>
                   </div>
                   <p className="typography-meta text-muted-foreground">
-                    Keys are sent directly to OpenCode and never stored by OpenChamber.
+                    Keys are sent directly to OpenCode and never stored by Neusis Code.
                   </p>
                 </div>
 
@@ -853,7 +853,7 @@ export const ProvidersPage: React.FC = () => {
                 </Button>
               </div>
               <p className="typography-meta text-muted-foreground">
-                Keys are sent directly to OpenCode and never stored by OpenChamber.
+                Keys are sent directly to OpenCode and never stored by Neusis Code.
               </p>
             </div>
 

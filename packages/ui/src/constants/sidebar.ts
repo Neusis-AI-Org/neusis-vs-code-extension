@@ -58,8 +58,8 @@ export const SIDEBAR_SECTIONS: SidebarSectionConfig[] = [
     },
     {
         id: 'settings',
-        label: 'OpenChamber',
-        description: 'OpenChamber app settings: themes, fonts, and preferences.',
+        label: 'Neusis Code',
+        description: 'Neusis Code app settings: themes, fonts, and preferences.',
         icon: RiSettings3Line,
     },
 ];
