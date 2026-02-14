@@ -81,6 +81,15 @@ export class ClaudeCodeManager {
       '--input-format', 'stream-json',
       '--verbose',
     ];
+
+    const permissionMode = vscode.workspace
+      .getConfiguration('openchamber')
+      .get<string>('claudeCode.permissionMode', 'ask');
+
+    if (permissionMode === 'auto-approve') {
+      args.push('--dangerously-skip-permissions');
+    }
+
     if (options.sessionId) {
       args.push('--resume', options.sessionId);
     }

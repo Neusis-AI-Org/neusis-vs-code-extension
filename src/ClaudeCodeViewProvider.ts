@@ -285,19 +285,30 @@ export class ClaudeCodeViewProvider implements vscode.WebviewViewProvider {
         }>;
       } | undefined;
       if (message?.content) {
-        this._currentAssistantText = '';
-        this._currentToolBlocks.clear();
+        let newText = '';
+        const newTools = new Map<string, PersistedToolBlock>();
+
         for (const c of message.content) {
           if (c.type === 'text' && typeof c.text === 'string') {
-            this._currentAssistantText += c.text;
+            newText += c.text;
           } else if (c.type === 'tool_use' && c.id && c.name) {
-            this._currentToolBlocks.set(c.id, {
+            newTools.set(c.id, {
               type: 'tool_use',
               id: c.id,
               name: c.name,
               input: c.input ?? {},
             });
           }
+        }
+
+        // Update text if present
+        if (newText) {
+          this._currentAssistantText = newText;
+        }
+
+        // Update tools only if new tools are present, otherwise keep existing ones (to avoid disappearing tools)
+        if (newTools.size > 0) {
+          this._currentToolBlocks = newTools;
         }
       }
     }

@@ -227,6 +227,15 @@
           "type": "string",
           "default": "",
           "description": "Optional absolute path to the Claude Code CLI binary (claude). Leave empty to use PATH lookup."
+        },
+        "openchamber.claudeCode.permissionMode": {
+          "type": "string",
+          "default": "ask",
+          "enum": [
+            "auto-approve",
+            "ask"
+          ],
+          "description": "Permission mode for Claude Code. 'ask' = interactive, 'auto-approve' = bypass all checks."
         }
       }
     }

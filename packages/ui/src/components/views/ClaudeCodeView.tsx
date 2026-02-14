@@ -424,9 +424,26 @@ export const ClaudeCodeView: React.FC = () => {
                 streamTextBufferRef.current = '';
                 setMessages(prev => {
                   const withAssistant = ensureAssistantMessage(prev);
+                  const last = withAssistant[withAssistant.length - 1];
+
+                  // Check if we need to preserve existing tool blocks that might be missing from the summary
+                  const existingTools = last.content.filter(b => b.type === 'tool_use');
+                  const newHasTools = newBlocks.some(b => b.type === 'tool_use');
+
+                  let mergedContent = newBlocks;
+                  
+                  // If the new message is just text (summary) but we had tools, preserve the tools
+                  // and append the new text (or replace the text parts).
+                  if (existingTools.length > 0 && !newHasTools) {
+                    // Filter out old text, keep tools
+                    const justTools = last.content.filter(b => b.type === 'tool_use');
+                    // Append the new content (which is likely just text)
+                    mergedContent = [...justTools, ...newBlocks];
+                  }
+
                   return [
                     ...withAssistant.slice(0, -1),
-                    { role: 'assistant' as const, content: newBlocks },
+                    { role: 'assistant' as const, content: mergedContent },
                   ];
                 });
               }
@@ -582,6 +599,37 @@ export const ClaudeCodeView: React.FC = () => {
     }
   }, [messages]);
 
+  const handleQuickResponse = useCallback((response: string) => {
+    if (isStreaming) return;
+    setMessages(prev => [...prev, { role: 'user', content: [{ type: 'text', text: response }] }]);
+    setInput('');
+    setError(null);
+    setIsStreaming(true);
+    streamTextBufferRef.current = '';
+    toolInputBuffersRef.current.clear();
+    getVSCodeApi()?.postMessage({ type: 'claude:send', payload: { prompt: response } });
+  }, [isStreaming]);
+
+  // Check if the last assistant message ended with a permission-like question
+  const isWaitingForPermission = useMemo(() => {
+    if (isStreaming || messages.length === 0) return false;
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg.role !== 'assistant') return false;
+    
+    // Check text content for question patterns
+    const text = getTextFromMessage(lastMsg).trim().toLowerCase();
+    const questionPatterns = [
+      '(y/n)',
+      'allow this',
+      'do you want to run',
+      'proceed with these changes',
+      'apply these changes',
+      'continue?',
+      'press enter',
+    ];
+    return questionPatterns.some(p => text.includes(p));
+  }, [messages, isStreaming]);
+
   const handleDismissError = useCallback(() => {
     setError(null);
   }, []);
@@ -613,7 +661,7 @@ export const ClaudeCodeView: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/60">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">Claude Code</span>
+          <span className="text-sm font-medium">Neusis Code</span>
           {version && (
             <span className="text-xs text-muted-foreground">{version}</span>
           )}
@@ -634,7 +682,7 @@ export const ClaudeCodeView: React.FC = () => {
         {messages.length === 0 && !isStreaming && (
           <div className="flex items-center justify-center h-full">
             <div className="text-muted-foreground text-sm text-center">
-              Ask Claude Code anything about your codebase.
+              Ask Neusis Code anything about your codebase.
             </div>
           </div>
         )}
@@ -642,7 +690,7 @@ export const ClaudeCodeView: React.FC = () => {
         {messages.map((msg, i) => (
           <div key={i} className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
             <span className="text-xs text-muted-foreground px-1">
-              {msg.role === 'user' ? 'You' : 'Claude'}
+              {msg.role === 'user' ? 'You' : 'Neusis'}
             </span>
 
             {msg.role === 'user' ? (
@@ -675,12 +723,28 @@ export const ClaudeCodeView: React.FC = () => {
       </div>
 
       {/* Input */}
-      <div className="border-t border-border/60 px-3 py-2">
+      <div className="border-t border-border/60 px-3 py-2 flex flex-col gap-2">
+        {isWaitingForPermission && (
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => handleQuickResponse('y')}
+              className="px-3 py-1.5 text-xs font-medium rounded-md bg-green-600/20 text-green-500 border border-green-600/30 hover:bg-green-600/30 transition-colors"
+            >
+              Yes (y)
+            </button>
+            <button
+              onClick={() => handleQuickResponse('n')}
+              className="px-3 py-1.5 text-xs font-medium rounded-md bg-red-600/20 text-red-500 border border-red-600/30 hover:bg-red-600/30 transition-colors"
+            >
+              No (n)
+            </button>
+          </div>
+        )}
         <div className="flex gap-2">
           <textarea
             ref={textareaRef}
             className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            placeholder="Message Claude Code..."
+            placeholder={isWaitingForPermission ? "Type 'y' or 'n' or instructions..." : "Message Neusis Code..."}
             rows={2}
             value={input}
             onChange={e => setInput(e.target.value)}
