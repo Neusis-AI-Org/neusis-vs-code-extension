@@ -5,6 +5,9 @@
   "version": "1.6.8",
   "publisher": "fedaykindev",
   "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/btriapitsyn/openchamber.git"
@@ -33,11 +36,7 @@
   ],
   "icon": "assets/app-icon.png",
   "main": "./dist/extension.js",
-  "activationEvents": [
-    "onCommand:openchamber.openSidebar",
-    "onView:openchamber.chatView",
-    "onView:openchamber.claudeCodeView"
-  ],
+  "activationEvents": [],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
