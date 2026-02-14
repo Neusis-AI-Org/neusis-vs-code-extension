@@ -1,84 +1,266 @@
 {
-  "name": "neusis-code",
-  "displayName": "Neusis Code",
-  "description": "A rich chat UI for Claude Code CLI inside VS Code",
-  "version": "0.0.1",
-  "publisher": "neusis",
+  "name": "openchamber",
+  "displayName": "OpenChamber",
+  "description": "AI coding assistant powered by OpenCode",
+  "version": "1.6.8",
+  "publisher": "fedaykindev",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/btriapitsyn/openchamber.git"
+  },
+  "qna": "https://discord.gg/ZYRSdnwwKA",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
-    "AI",
-    "Chat"
+    "Programming Languages",
+    "Machine Learning",
+    "Other"
   ],
-  "activationEvents": [],
+  "keywords": [
+    "ai",
+    "claude",
+    "gpt",
+    "agent",
+    "coding",
+    "chatgpt",
+    "groq",
+    "assistant",
+    "opencode",
+    "openchamber"
+  ],
+  "icon": "assets/app-icon.png",
   "main": "./dist/extension.js",
+  "activationEvents": [
+    "onCommand:openchamber.openSidebar",
+    "onView:openchamber.chatView",
+    "onView:openchamber.claudeCodeView"
+  ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "neusis-code",
-          "title": "Neusis Code",
-          "icon": "resources/icon.svg"
+          "id": "openchamber",
+          "title": "OpenChamber",
+          "icon": "assets/icon.svg"
         }
       ]
     },
     "views": {
-      "neusis-code": [
+      "openchamber": [
         {
           "type": "webview",
-          "id": "neusis-code.chatView",
+          "id": "openchamber.chatView",
           "name": "Chat"
+        },
+        {
+          "type": "webview",
+          "id": "openchamber.claudeCodeView",
+          "name": "Claude Code"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "openchamber.openSidebar",
+        "category": "OpenChamber",
+        "title": "Open Sidebar",
+        "icon": {
+          "light": "assets/icon.svg",
+          "dark": "assets/icon-titlebar.svg"
+        }
+      },
+      {
+        "command": "openchamber.focusChat",
+        "category": "OpenChamber",
+        "title": "Focus Chat"
+      },
+      {
+        "command": "openchamber.restartApi",
+        "category": "OpenChamber",
+        "title": "Restart API Connection"
+      },
+      {
+        "command": "openchamber.showOpenCodeStatus",
+        "category": "OpenChamber",
+        "title": "Show OpenCode Status"
+      },
+      {
+        "command": "openchamber.openAgentManager",
+        "category": "OpenChamber",
+        "title": "Open Agent Manager",
+        "icon": "$(circuit-board)"
+      },
+      {
+        "command": "openchamber.openActiveSessionInEditor",
+        "category": "OpenChamber",
+        "title": "Open Active Session in Editor",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "openchamber.openNewSessionInEditor",
+        "category": "OpenChamber",
+        "title": "Open New Session in Editor",
+        "icon": {
+          "light": "assets/icon.svg",
+          "dark": "assets/icon-titlebar.svg"
+        }
+      },
+      {
+        "command": "openchamber.openCurrentOrNewSessionInEditor",
+        "category": "OpenChamber",
+        "title": "Open Session in Editor",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "openchamber.addToContext",
+        "category": "OpenChamber",
+        "title": "Add to Context"
+      },
+      {
+        "command": "openchamber.explain",
+        "category": "OpenChamber",
+        "title": "Explain"
+      },
+      {
+        "command": "openchamber.improveCode",
+        "category": "OpenChamber",
+        "title": "Improve Code"
+      },
+      {
+        "command": "openchamber.newSession",
+        "category": "OpenChamber",
+        "title": "New Session",
+        "icon": "$(add)"
+      },
+      {
+        "command": "openchamber.showSettings",
+        "category": "OpenChamber",
+        "title": "Settings",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "openchamber.focusClaudeCode",
+        "category": "OpenChamber",
+        "title": "Focus Claude Code"
+      },
+      {
+        "command": "openchamber.claudeCode.newConversation",
+        "category": "OpenChamber",
+        "title": "New Conversation",
+        "icon": "$(add)"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "openchamber.submenu",
+        "label": "OpenChamber"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "submenu": "openchamber.submenu",
+          "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "openchamber.openNewSessionInEditor",
+          "group": "navigation@1"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "openchamber.newSession",
+          "when": "view == openchamber.chatView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "openchamber.openCurrentOrNewSessionInEditor",
+          "when": "view == openchamber.chatView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "openchamber.openAgentManager",
+          "when": "view == openchamber.chatView",
+          "group": "navigation@3"
+        },
+        {
+          "command": "openchamber.showSettings",
+          "when": "view == openchamber.chatView",
+          "group": "navigation@4"
+        },
+        {
+          "command": "openchamber.claudeCode.newConversation",
+          "when": "view == openchamber.claudeCodeView",
+          "group": "navigation@1"
+        }
+      ],
+      "openchamber.submenu": [
+        {
+          "command": "openchamber.explain"
+        },
+        {
+          "command": "openchamber.improveCode"
+        },
+        {
+          "command": "openchamber.addToContext"
         }
       ]
     },
     "configuration": {
-      "title": "Neusis Code",
+      "title": "OpenChamber",
       "properties": {
-        "neusis-code.permissionMode": {
+        "openchamber.apiUrl": {
           "type": "string",
-          "enum": ["askFirst", "autoEdit", "planFirst"],
-          "enumDescriptions": [
-            "Ask for approval before each file write, edit, or command (modal dialog)",
-            "Automatically approve all tool operations without prompting (recommended)",
-            "Read-only mode — Claude can only read files, no modifications or commands"
-          ],
-          "default": "autoEdit",
-          "description": "Controls how Claude handles tool permissions."
+          "default": "",
+          "description": "URL of an external OpenCode API server. Leave empty to auto-start a local instance."
+        },
+        "openchamber.opencodeBinary": {
+          "type": "string",
+          "default": "",
+          "description": "Optional absolute path to the opencode CLI binary. Useful if PATH lookup fails. Requires window reload or API restart to apply."
+        },
+        "openchamber.claudeCodeBinary": {
+          "type": "string",
+          "default": "",
+          "description": "Optional absolute path to the Claude Code CLI binary (claude). Leave empty to use PATH lookup."
         }
       }
-    },
-    "commands": [
-      {
-        "command": "neusis-code.newChat",
-        "title": "Neusis Code: New Chat"
-      },
-      {
-        "command": "neusis-code.stopGeneration",
-        "title": "Neusis Code: Stop Generation"
-      },
-      {
-        "command": "neusis-code.acceptFileChanges",
-        "title": "Neusis Code: Accept File Changes"
-      },
-      {
-        "command": "neusis-code.rejectFileChanges",
-        "title": "Neusis Code: Reject File Changes"
-      }
-    ]
+    }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "webpack --mode production",
-    "watch": "webpack --mode development --watch",
-    "lint": "eslint src --ext ts"
+    "vscode:prepublish": "bun run build",
+    "build": "bun run build:extension && bun run build:webview",
+    "build:extension": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify --main-fields=module,main",
+    "build:webview": "VITE_OPENCODE_URL=/api vite build",
+    "dev": "concurrently -n \"ext,web\" -c \"cyan,magenta\" \"bun run watch:extension\" \"bun run watch:webview\"",
+    "watch:extension": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --watch --sourcemap --main-fields=module,main",
+    "watch:webview": "vite build --watch",
+    "type-check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.webview.json",
+    "lint": "bunx eslint --ext .ts,.tsx src webview",
+    "package": "vsce package --no-dependencies"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
+    "@types/adm-zip": "^0.5.7",
     "@types/vscode": "^1.85.0",
-    "ts-loader": "^9.5.1",
-    "typescript": "^5.3.3",
-    "webpack": "^5.89.0",
-    "webpack-cli": "^5.1.4"
+    "@vitejs/plugin-react": "^5.0.0",
+    "@vscode/vsce": "^3.2.1",
+    "concurrently": "^9.2.1",
+    "esbuild": "^0.24.2",
+    "typescript": "~5.8.3",
+    "vite": "^7.1.2"
+  },
+  "dependencies": {
+    "@openchamber/ui": "workspace:*",
+    "@opencode-ai/sdk": "^1.1.65",
+    "adm-zip": "^0.5.16",
+    "jsonc-parser": "^3.3.1",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "yaml": "^2.8.1"
   }
 }
