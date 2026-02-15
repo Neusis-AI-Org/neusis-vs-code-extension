@@ -1,16 +1,16 @@
 {
   "name": "openchamber",
   "displayName": "Neusis Code",
-  "description": "AI coding assistant powered by OpenCode",
+  "description": "AI coding assistant powered by Neusis Code.",
   "version": "1.6.8",
-  "publisher": "fedaykindev",
+  "publisher": "Neusis",
   "private": true,
   "workspaces": [
     "packages/*"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/btriapitsyn/openchamber.git"
+    "url": "https://github.com/Neusis/openchamber.git"
   },
   "qna": "https://discord.gg/ZYRSdnwwKA",
   "license": "MIT",
@@ -31,7 +31,7 @@
     "chatgpt",
     "groq",
     "assistant",
-    "opencode",
+    "neusis",
     "openchamber"
   ],
   "icon": "assets/app-icon.png",

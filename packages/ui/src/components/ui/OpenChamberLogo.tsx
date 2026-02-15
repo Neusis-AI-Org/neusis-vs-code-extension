@@ -212,7 +212,7 @@ export const OpenChamberLogo: React.FC<OpenChamberLogoProps> = ({
         strokeLinejoin="round"
       />
       
-      {/* OpenCode logo on top face */}
+      {/* N logo on top face */}
       <g opacity={isAnimated ? undefined : 1}>
         {isAnimated && (
           <animate
@@ -224,24 +224,11 @@ export const OpenChamberLogo: React.FC<OpenChamberLogoProps> = ({
             keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"
           />
         )}
-        {/* 
-          Isometric transform for top face:
-          OpenCode logo (32x40 viewBox) centered and projected to isometric plane
-        */}
         <g transform={`${isoMatrix} scale(0.75)`}>
-          {/* OpenCode logo - outer frame with inner square */}
-          {/* Outer frame (centered at origin, original: 0,0 to 32,40) */}
+          {/* N letter */}
           <path
-            fillRule="evenodd"
-            clipRule="evenodd"
-            d="M-16 -20 L16 -20 L16 20 L-16 20 Z M-8 -12 L-8 12 L8 12 L8 -12 Z"
+            d="M-12 16 L-12 -16 L-5 -16 L5 8 L5 -16 L12 -16 L12 16 L5 16 L-5 -8 L-5 16 Z"
             fill={logoFillColor}
-          />
-          {/* Inner square */}
-          <path
-            d="M-8 -4 L8 -4 L8 12 L-8 12 Z"
-            fill={logoFillColor}
-            fillOpacity="0.4"
           />
         </g>
       </g>

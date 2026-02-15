@@ -120,10 +120,9 @@ export function getWebviewHtml(options: WebviewHtmlOptions): string {
       <!-- Top face (no fill, stroke only) -->
       <path class="logo-stroke" d="M50 2 L8.432 26 L50 50 L91.568 26 Z" fill="none" stroke-width="2" stroke-linejoin="round"/>
       
-      <!-- OpenCode logo on top face with pulse animation -->
+      <!-- N logo on top face with pulse animation -->
       <g class="logo-inner" transform="matrix(0.866, 0.5, -0.866, 0.5, 50, 26) scale(0.75)">
-        <path class="logo-fill-solid" fill-rule="evenodd" clip-rule="evenodd" d="M-16 -20 L16 -20 L16 20 L-16 20 Z M-8 -12 L-8 12 L8 12 L8 -12 Z"/>
-        <path class="logo-fill-dim" d="M-8 -4 L8 -4 L8 12 L-8 12 Z"/>
+        <path class="logo-fill-solid" d="M-12 16 L-12 -16 L-5 -16 L5 8 L5 -16 L12 -16 L12 16 L5 16 L-5 -8 L-5 16 Z"/>
       </g>
     </svg>
     <div class="status-text" id="loading-status">
