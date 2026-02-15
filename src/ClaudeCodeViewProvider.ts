@@ -85,10 +85,14 @@ export class ClaudeCodeViewProvider implements vscode.WebviewViewProvider {
 
     // Send initial availability status
     const available = this._claudeManager.isAvailable();
+    const currentModel = vscode.workspace.getConfiguration('openchamber').get<string>('claudeCode.model', '');
+    const currentPermissionMode = vscode.workspace.getConfiguration('openchamber').get<string>('claudeCode.permissionMode', 'acceptEdits');
     webviewView.webview.postMessage({
       type: 'claude:availability',
       available,
       version: available ? this._claudeManager.getVersion() : null,
+      model: currentModel,
+      permissionMode: currentPermissionMode,
     });
 
     // Restore persisted messages to the webview
@@ -108,6 +112,24 @@ export class ClaudeCodeViewProvider implements vscode.WebviewViewProvider {
           this._handleSendPrompt(prompt.trim());
           break;
         }
+        case 'claude:respond': {
+          const response = message.payload?.response as string | undefined;
+          if (!response) return;
+          const sent = this._claudeManager.respond(response, this._conversationId ?? undefined);
+          if (sent) {
+            // Track the user response as a message
+            this._messages.push({
+              role: 'user',
+              content: [{ type: 'text', text: response }],
+            });
+            this._currentAssistantText = '';
+            this._currentToolBlocks.clear();
+          } else {
+            // Process not running — fall back to sending a new prompt
+            this._handleSendPrompt(response);
+          }
+          break;
+        }
         case 'claude:abort': {
           this._claudeManager.abort();
           this._view?.webview.postMessage({ type: 'claude:aborted' });
@@ -122,12 +144,42 @@ export class ClaudeCodeViewProvider implements vscode.WebviewViewProvider {
           this._view?.webview.postMessage({ type: 'claude:conversationReset' });
           break;
         }
+        case 'claude:setModel': {
+          const model = (message.payload?.model as string) ?? '';
+          void vscode.workspace.getConfiguration('openchamber').update(
+            'claudeCode.model',
+            model || undefined,
+            vscode.ConfigurationTarget.Global,
+          );
+          break;
+        }
+        case 'claude:respondToTool': {
+          const toolUseId = message.payload?.toolUseId as string | undefined;
+          const content = message.payload?.content as string | undefined;
+          if (toolUseId && content !== undefined) {
+            this._claudeManager.respondToTool(toolUseId, content, this._conversationId ?? undefined);
+          }
+          break;
+        }
+        case 'claude:setPermissionMode': {
+          const mode = (message.payload?.permissionMode as string) ?? 'acceptEdits';
+          void vscode.workspace.getConfiguration('openchamber').update(
+            'claudeCode.permissionMode',
+            mode,
+            vscode.ConfigurationTarget.Global,
+          );
+          break;
+        }
         case 'claude:checkAvailability': {
           const isAvailable = this._claudeManager.isAvailable();
+          const savedModel = vscode.workspace.getConfiguration('openchamber').get<string>('claudeCode.model', '');
+          const savedPermMode = vscode.workspace.getConfiguration('openchamber').get<string>('claudeCode.permissionMode', 'acceptEdits');
           this._view?.webview.postMessage({
             type: 'claude:availability',
             available: isAvailable,
             version: isAvailable ? this._claudeManager.getVersion() : null,
+            model: savedModel,
+            permissionMode: savedPermMode,
           });
           break;
         }
@@ -218,13 +270,17 @@ export class ClaudeCodeViewProvider implements vscode.WebviewViewProvider {
     this._currentAssistantText = '';
     this._currentToolBlocks.clear();
 
+    const selectedModel = vscode.workspace.getConfiguration('openchamber').get<string>('claudeCode.model', '');
+
     this._claudeManager.sendPrompt(prompt, {
       cwd: workspaceFolder,
       sessionId: this._conversationId ?? undefined,
+      model: selectedModel || undefined,
       onEvent: (event: ClaudeCodeEvent) => {
         // Extract session ID from init or result events for multi-turn
         if (typeof event.session_id === 'string' && event.session_id) {
           this._conversationId = event.session_id;
+          this._claudeManager.setSessionId(event.session_id);
         }
 
         // Track assistant content for persistence

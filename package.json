@@ -57,7 +57,7 @@
         {
           "type": "webview",
           "id": "openchamber.claudeCodeView",
-          "name": "Claude Code"
+          "name": "CC"
         }
       ]
     },
@@ -230,12 +230,47 @@
         },
         "openchamber.claudeCode.permissionMode": {
           "type": "string",
-          "default": "ask",
+          "default": "acceptEdits",
           "enum": [
-            "auto-approve",
-            "ask"
+            "default",
+            "acceptEdits",
+            "plan",
+            "dontAsk",
+            "bypassPermissions"
           ],
-          "description": "Permission mode for Claude Code. 'ask' = interactive, 'auto-approve' = bypass all checks."
+          "enumDescriptions": [
+            "Standard permission prompts — tools may be denied in non-interactive mode",
+            "Auto-accept file edits (Read, Write, Edit, Glob, Grep) while blocking arbitrary Bash (Recommended)",
+            "Read-only plan mode — no tool execution, only planning",
+            "Auto-approve all tools without asking",
+            "Bypass ALL permission checks (use only in trusted environments)"
+          ],
+          "description": "Permission mode for Claude Code CLI. Controls which tools are auto-approved."
+        },
+        "openchamber.claudeCode.allowedTools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Additional tool names to allow (e.g. \"Bash(git:*)\" \"Edit\"). Passed as --allowedTools to Claude CLI."
+        },
+        "openchamber.claudeCode.model": {
+          "type": "string",
+          "default": "",
+          "enum": [
+            "",
+            "claude-sonnet-4-5-20250929",
+            "claude-opus-4-6",
+            "claude-haiku-4-5-20251001"
+          ],
+          "enumDescriptions": [
+            "Use CLI default model",
+            "Claude Sonnet 4.5",
+            "Claude Opus 4.6",
+            "Claude Haiku 4.5"
+          ],
+          "description": "Model to use for Claude Code. Leave empty to use the CLI default."
         }
       }
     }

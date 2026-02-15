@@ -9,6 +9,7 @@ export interface ClaudeCodeEvent {
 export interface SendPromptOptions {
   cwd: string;
   sessionId?: string;
+  model?: string;
   onEvent: (event: ClaudeCodeEvent) => void;
   onDone: () => void;
   onError: (error: string) => void;
@@ -17,6 +18,7 @@ export interface SendPromptOptions {
 export class ClaudeCodeManager {
   private _process: ChildProcess | null = null;
   private _binaryPath: string | null = null;
+  private _currentSessionId: string | null = null;
 
   constructor(_context: vscode.ExtensionContext) {}
 
@@ -84,10 +86,24 @@ export class ClaudeCodeManager {
 
     const permissionMode = vscode.workspace
       .getConfiguration('openchamber')
-      .get<string>('claudeCode.permissionMode', 'ask');
+      .get<string>('claudeCode.permissionMode', 'acceptEdits');
 
-    if (permissionMode === 'auto-approve') {
+    if (permissionMode === 'bypassPermissions') {
       args.push('--dangerously-skip-permissions');
+    } else if (permissionMode !== 'default') {
+      args.push('--permission-mode', permissionMode);
+    }
+
+    // Always allow AskUserQuestion (safe — just asks the human a question)
+    // plus any additional tools the user configured.
+    const configuredTools = vscode.workspace
+      .getConfiguration('openchamber')
+      .get<string[]>('claudeCode.allowedTools', []);
+    const allowedTools = ['AskUserQuestion', ...configuredTools.filter(t => t !== 'AskUserQuestion')];
+    args.push('--allowedTools', ...allowedTools);
+
+    if (options.model) {
+      args.push('--model', options.model);
     }
 
     if (options.sessionId) {
@@ -123,6 +139,7 @@ export class ClaudeCodeManager {
       },
     };
     child.stdin?.write(JSON.stringify(userMessage) + '\n');
+    this._currentSessionId = options.sessionId ?? null;
 
     let stderrBuffer = '';
     let stdoutBuffer = '';
@@ -139,9 +156,17 @@ export class ClaudeCodeManager {
         try {
           const event = JSON.parse(trimmed) as ClaudeCodeEvent;
 
-          // When we receive the result, close stdin so the process exits.
+          // Track session ID from events
+          if (typeof event.session_id === 'string' && event.session_id) {
+            this._currentSessionId = event.session_id;
+          }
+
+          // When we receive the final result, close stdin so the process exits.
           if (event.type === 'result') {
-            if (child.stdin && !child.stdin.destroyed) {
+            // Only close stdin if this is a final result (has cost_usd or duration_ms),
+            // not an intermediate result during multi-turn permission flows.
+            const isFinalResult = event.cost_usd !== undefined || event.duration_ms !== undefined;
+            if (isFinalResult && child.stdin && !child.stdin.destroyed) {
               child.stdin.end();
             }
           }
@@ -182,6 +207,60 @@ export class ClaudeCodeManager {
       this._process = null;
       options.onError(err.message);
     });
+  }
+
+  /**
+   * Send a response to the running Claude process via stdin.
+   * Uses the stream-json input protocol to send a user message.
+   * Returns true if the response was sent, false if no process is running.
+   */
+  respond(text: string, sessionId?: string): boolean {
+    if (!this._process || !this._process.stdin || this._process.stdin.destroyed) {
+      return false;
+    }
+    const sid = sessionId ?? this._currentSessionId ?? '';
+    const userMessage = {
+      type: 'user',
+      session_id: sid,
+      message: {
+        role: 'user',
+        content: [{ type: 'text', text }],
+      },
+    };
+    this._process.stdin.write(JSON.stringify(userMessage) + '\n');
+    return true;
+  }
+
+  /**
+   * Send a tool_result back to the running Claude process via stdin.
+   * Used to answer AskUserQuestion and other interactive tools.
+   * Returns true if sent, false if no process is running.
+   */
+  respondToTool(toolUseId: string, content: string, sessionId?: string): boolean {
+    if (!this._process || !this._process.stdin || this._process.stdin.destroyed) {
+      return false;
+    }
+    const sid = sessionId ?? this._currentSessionId ?? '';
+    const toolResultMessage = {
+      type: 'user',
+      session_id: sid,
+      message: {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: toolUseId, content }],
+      },
+    };
+    this._process.stdin.write(JSON.stringify(toolResultMessage) + '\n');
+    return true;
+  }
+
+  /** Update the tracked session ID (set by the provider when it receives one). */
+  setSessionId(id: string): void {
+    this._currentSessionId = id;
+  }
+
+  /** Whether a Claude process is currently running. */
+  isRunning(): boolean {
+    return this._process !== null;
   }
 
   abort(): void {
