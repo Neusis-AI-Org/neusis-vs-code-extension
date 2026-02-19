@@ -29,12 +29,11 @@ Write-Host ("─" * 40)
 Write-Host ""
 
 # ── Detect arch ──────────────────────────────────────────────────────────────
-$arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
-$archTag = switch ($arch) {
-    'X64'   { 'x64' }
-    'Arm64' { 'arm64' }
+$archTag = switch ($env:PROCESSOR_ARCHITECTURE) {
+    'AMD64' { 'x64' }
+    'ARM64' { 'arm64' }
     default {
-        Write-Host "Unsupported architecture: $arch" -ForegroundColor Red
+        Write-Host "Unsupported architecture: $($env:PROCESSOR_ARCHITECTURE)" -ForegroundColor Red
         exit 1
     }
 }
