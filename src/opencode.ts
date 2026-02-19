@@ -475,7 +475,7 @@ export function createOpenCodeManager(_context: vscode.ExtensionContext): OpenCo
           'Setup Guide'
         ).then(selection => {
           if (selection === 'Setup Guide') {
-            vscode.env.openExternal(vscode.Uri.parse('https://github.com/Neusis/openchamber/releases/latest'));
+            vscode.env.openExternal(vscode.Uri.parse('https://github.com/Neusis-AI-Org/neusis-vs-code-extension/releases/latest'));
           }
         });
       } else {
