@@ -111,6 +111,49 @@ if ([string]::IsNullOrWhiteSpace($apiKey)) {
     exit 1
 }
 
+# ── Fetch available models ────────────────────────────────────────────────────
+Write-Host ("Fetching available models...".PadRight(42)) -NoNewline
+
+function ConvertTo-DisplayName {
+    param([string]$ModelId)
+    $name = $ModelId -replace '[-_/]', ' ' -replace '\s+', ' '
+    return (Get-Culture).TextInfo.ToTitleCase($name.ToLower())
+}
+
+$modelsLines  = @()
+$fetchFailed  = $false
+
+try {
+    $headers  = @{ 'accept' = 'application/json'; 'x-litellm-api-key' = $apiKey }
+    $modelsUri = "$BaseURL/models?return_wildcard_routes=false&include_model_access_groups=false&only_model_access_groups=false&include_metadata=false"
+    $resp = Invoke-RestMethod -Uri $modelsUri -Headers $headers -UseBasicParsing
+    foreach ($model in $resp.data) {
+        $id   = $model.id
+        $name = ConvertTo-DisplayName $id
+        $modelsLines += "        `"$id`": {`n          `"name`": `"$name`"`n        }"
+    }
+    if ($modelsLines.Count -gt 0) {
+        Write-Host "done ($($modelsLines.Count) models)" -ForegroundColor Green
+    } else {
+        $fetchFailed = $true
+    }
+} catch {
+    $fetchFailed = $true
+}
+
+if ($fetchFailed) {
+    Write-Host "using defaults" -ForegroundColor Yellow
+    $modelsLines = @(
+        "        `"github_copilot/gpt-4`": {`n          `"name`": `"Github Copilot Gpt 4`"`n        }",
+        "        `"github_copilot/gpt-5.1-codex`": {`n          `"name`": `"Github Copilot Gpt 5.1 Codex`"`n        }",
+        "        `"gemini/gemini-pro-latest`": {`n          `"name`": `"Gemini Gemini Pro Latest`"`n        }",
+        "        `"gemini-flash-latest`": {`n          `"name`": `"Gemini Flash Latest`"`n        }",
+        "        `"gemini-flash-lite-latest`": {`n          `"name`": `"Gemini Flash Lite Latest`"`n        }"
+    )
+}
+
+$modelsBlock = $modelsLines -join ",`n"
+
 # ── Write configuration ──────────────────────────────────────────────────────
 Write-Host ("Writing configuration...".PadRight(42)) -NoNewline
 
@@ -128,21 +171,7 @@ $config = @"
         "apiKey": "$apiKey"
       },
       "models": {
-        "github_copilot/gpt-4": {
-          "name": "GPT-4 (GitHub Copilot)"
-        },
-        "github_copilot/gpt-5.1-codex": {
-          "name": "GPT-5.1 Codex (GitHub Copilot)"
-        },
-        "gemini/gemini-pro-latest": {
-          "name": "Gemini Pro Latest"
-        },
-        "gemini-flash-latest": {
-          "name": "Gemini Flash Latest"
-        },
-        "gemini-flash-lite-latest": {
-          "name": "Gemini Flash Lite Latest"
-        }
+$modelsBlock
       }
     }
   },

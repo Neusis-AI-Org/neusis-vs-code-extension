@@ -19,9 +19,10 @@ if [ -z "${HOME:-}" ]; then
 fi
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
-bold() { printf '\033[1m%s\033[0m' "$*"; }
-green() { printf '\033[32m%s\033[0m' "$*"; }
-red()  { printf '\033[31m%s\033[0m' "$*"; }
+bold()   { printf '\033[1m%s\033[0m' "$*"; }
+green()  { printf '\033[32m%s\033[0m' "$*"; }
+red()    { printf '\033[31m%s\033[0m' "$*"; }
+yellow() { printf '\033[33m%s\033[0m' "$*"; }
 
 # ── Banner ───────────────────────────────────────────────────────────────────
 echo ""
@@ -127,6 +128,66 @@ if [ -z "$API_KEY" ]; then
   exit 1
 fi
 
+# ── Fetch available models ────────────────────────────────────────────────────
+printf '%-42s' "Fetching available models..."
+
+_MODELS_URL="${BASE_URL}/models?return_wildcard_routes=false&include_model_access_groups=false&only_model_access_groups=false&include_metadata=false"
+MODELS_BLOCK=""
+_MODELS_RESPONSE=""
+
+_MODELS_RESPONSE=$(curl -fsSL \
+  -H "accept: application/json" \
+  -H "x-litellm-api-key: ${API_KEY}" \
+  "$_MODELS_URL" 2>/dev/null) || _MODELS_RESPONSE=""
+
+if [ -n "$_MODELS_RESPONSE" ]; then
+  if command -v jq >/dev/null 2>&1; then
+    MODELS_BLOCK=$(printf '%s' "$_MODELS_RESPONSE" | jq -r '
+      (.data // []) | map(.id) |
+      map(. as $id |
+        ($id | gsub("[-_/]"; " ") | split(" ") |
+          map(ascii_upcase[0:1] + .[1:]) | join(" ")) as $name |
+        "        \"\($id)\": {\n          \"name\": \"\($name)\"\n        }"
+      ) | join(",\n")
+    ' 2>/dev/null) || MODELS_BLOCK=""
+  elif command -v python3 >/dev/null 2>&1; then
+    MODELS_BLOCK=$(printf '%s' "$_MODELS_RESPONSE" | python3 -c "
+import json, sys, re
+data = json.load(sys.stdin)
+lines = []
+for m in data.get('data', []):
+    mid = m['id']
+    name = re.sub(r'[-_/]', ' ', mid)
+    name = ' '.join(w.capitalize() for w in name.split())
+    lines.append('        \"%s\": {\n          \"name\": \"%s\"\n        }' % (mid, name))
+print(',\n'.join(lines))
+" 2>/dev/null) || MODELS_BLOCK=""
+  fi
+fi
+
+if [ -n "$MODELS_BLOCK" ]; then
+  _MODEL_COUNT=$(printf '%s' "$MODELS_BLOCK" | grep -c '"name"' 2>/dev/null) || _MODEL_COUNT="?"
+  green "done (${_MODEL_COUNT} models)"
+else
+  yellow "using defaults"
+  MODELS_BLOCK='        "github_copilot/gpt-4": {
+          "name": "Github Copilot Gpt 4"
+        },
+        "github_copilot/gpt-5.1-codex": {
+          "name": "Github Copilot Gpt 5.1 Codex"
+        },
+        "gemini/gemini-pro-latest": {
+          "name": "Gemini Gemini Pro Latest"
+        },
+        "gemini-flash-latest": {
+          "name": "Gemini Flash Latest"
+        },
+        "gemini-flash-lite-latest": {
+          "name": "Gemini Flash Lite Latest"
+        }'
+fi
+echo ""
+
 # ── Write configuration ──────────────────────────────────────────────────────
 printf '%-42s' "Writing configuration..."
 mkdir -p "$(dirname "$CONFIG_PATH")"
@@ -142,21 +203,7 @@ cat > "$CONFIG_PATH" <<ENDOFCONFIG
         "apiKey": "${API_KEY}"
       },
       "models": {
-        "github_copilot/gpt-4": {
-          "name": "GPT-4 (GitHub Copilot)"
-        },
-        "github_copilot/gpt-5.1-codex": {
-          "name": "GPT-5.1 Codex (GitHub Copilot)"
-        },
-        "gemini/gemini-pro-latest": {
-          "name": "Gemini Pro Latest"
-        },
-        "gemini-flash-latest": {
-          "name": "Gemini Flash Latest"
-        },
-        "gemini-flash-lite-latest": {
-          "name": "Gemini Flash Lite Latest"
-        }
+${MODELS_BLOCK}
       }
     }
   },
