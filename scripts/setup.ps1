@@ -1,4 +1,4 @@
-#Requires -Version 5.0
+﻿#Requires -Version 5.0
 <#
 .SYNOPSIS
     Neusis Code Setup — installs the engine and configures the provider.
@@ -26,7 +26,7 @@ if ([string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
 # ── Banner ───────────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "Neusis Code Setup" -ForegroundColor White
-Write-Host ("─" * 40)
+Write-Host ("-" * 40)
 Write-Host ""
 
 # ── Detect arch ──────────────────────────────────────────────────────────────
