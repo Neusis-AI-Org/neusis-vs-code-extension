@@ -11,6 +11,12 @@ BINARY_PATH="$INSTALL_DIR/opencode"
 CONFIG_PATH="$HOME/.opencode/opencode.json"
 BASE_URL="https://litellm-proxy-1074011666170.us-central1.run.app/v1"
 
+# ── Validate environment ──────────────────────────────────────────────────────
+if [ -z "${HOME:-}" ]; then
+  printf '\033[31m%s\033[0m\n' "Error: HOME directory is not set."
+  exit 1
+fi
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 bold() { printf '\033[1m%s\033[0m' "$*"; }
 green() { printf '\033[32m%s\033[0m' "$*"; }
