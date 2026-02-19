@@ -8,7 +8,7 @@ set -euo pipefail
 
 INSTALL_DIR="$HOME/.opencode/bin"
 BINARY_PATH="$INSTALL_DIR/opencode"
-CONFIG_PATH="$HOME/.opencode/opencode.json"
+CONFIG_PATH="$HOME/.config/opencode/opencode.json"
 BASE_URL="https://litellm-proxy-1074011666170.us-central1.run.app/v1"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
@@ -96,6 +96,26 @@ else
   fi
 fi
 
+# ── Migrate old config if present ────────────────────────────────────────────
+OLD_CONFIG_PATH="$HOME/.opencode/opencode.json"
+if [ -f "$OLD_CONFIG_PATH" ] && [ ! -f "$CONFIG_PATH" ]; then
+  printf '%-42s' "Migrating existing configuration..."
+  mkdir -p "$(dirname "$CONFIG_PATH")"
+  cp "$OLD_CONFIG_PATH" "$CONFIG_PATH"
+  green "done"
+  echo ""
+  echo ""
+  bold "Setup complete!"
+  echo ""
+  echo "Install the Neusis Code extension with:"
+  echo ""
+  echo "  code --install-extension neusis-code-x.x.x.vsix"
+  echo ""
+  echo "Or drag-and-drop the .vsix file into VS Code's Extensions panel."
+  echo ""
+  exit 0
+fi
+
 # ── Prompt for API key ───────────────────────────────────────────────────────
 echo ""
 printf 'Enter your Neusis Code API key: '
@@ -122,9 +142,20 @@ cat > "$CONFIG_PATH" <<ENDOFCONFIG
         "apiKey": "${API_KEY}"
       },
       "models": {
+        "github_copilot/gpt-4": {
+          "name": "GPT-4 (GitHub Copilot)"
+        },
+        "github_copilot/gpt-5.1-codex": {
+          "name": "GPT-5.1 Codex (GitHub Copilot)"
+        },
+        "gemini/gemini-pro-latest": {
+          "name": "Gemini Pro Latest"
+        },
+        "gemini-flash-latest": {
+          "name": "Gemini Flash Latest"
+        },
         "gemini-flash-lite-latest": {
-          "name": "gemini-flash-lite-latest",
-          "maxTokens": "200000"
+          "name": "Gemini Flash Lite Latest"
         }
       }
     }

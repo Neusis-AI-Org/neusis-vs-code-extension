@@ -13,7 +13,7 @@ $ErrorActionPreference = 'Stop'
 
 $InstallDir  = Join-Path $env:USERPROFILE '.opencode\bin'
 $BinaryPath  = Join-Path $InstallDir 'opencode.exe'
-$ConfigDir   = Join-Path $env:USERPROFILE '.opencode'
+$ConfigDir   = Join-Path $env:USERPROFILE '.config\opencode'
 $ConfigPath  = Join-Path $ConfigDir 'opencode.json'
 $BaseURL     = 'https://litellm-proxy-1074011666170.us-central1.run.app/v1'
 
@@ -83,6 +83,25 @@ if (Test-Path $BinaryPath) {
     }
 }
 
+# ── Migrate old config if present ────────────────────────────────────────────
+$OldConfigPath = Join-Path $env:USERPROFILE '.opencode\opencode.json'
+if ((Test-Path $OldConfigPath) -and -not (Test-Path $ConfigPath)) {
+    Write-Host ("Migrating existing configuration...".PadRight(42)) -NoNewline
+    New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
+    Copy-Item -Path $OldConfigPath -Destination $ConfigPath -Force
+    Write-Host "done" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Setup complete!" -ForegroundColor White
+    Write-Host ""
+    Write-Host "Install the Neusis Code extension with:"
+    Write-Host ""
+    Write-Host "  code --install-extension neusis-code-x.x.x.vsix"
+    Write-Host ""
+    Write-Host "Or drag-and-drop the .vsix file into VS Code's Extensions panel."
+    Write-Host ""
+    exit 0
+}
+
 # ── Prompt for API key ───────────────────────────────────────────────────────
 Write-Host ""
 $apiKey = (Read-Host "Enter your Neusis Code API key").Trim()
@@ -109,9 +128,20 @@ $config = @"
         "apiKey": "$apiKey"
       },
       "models": {
+        "github_copilot/gpt-4": {
+          "name": "GPT-4 (GitHub Copilot)"
+        },
+        "github_copilot/gpt-5.1-codex": {
+          "name": "GPT-5.1 Codex (GitHub Copilot)"
+        },
+        "gemini/gemini-pro-latest": {
+          "name": "Gemini Pro Latest"
+        },
+        "gemini-flash-latest": {
+          "name": "Gemini Flash Latest"
+        },
         "gemini-flash-lite-latest": {
-          "name": "gemini-flash-lite-latest",
-          "maxTokens": "200000"
+          "name": "Gemini Flash Lite Latest"
         }
       }
     }
