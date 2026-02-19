@@ -10,6 +10,7 @@ INSTALL_DIR="$HOME/.opencode/bin"
 BINARY_PATH="$INSTALL_DIR/opencode"
 CONFIG_PATH="$HOME/.opencode/opencode.json"
 BASE_URL="https://litellm-proxy-1074011666170.us-central1.run.app/v1"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # ── Validate environment ──────────────────────────────────────────────────────
 if [ -z "${HOME:-}" ]; then
@@ -44,7 +45,7 @@ case "$OS" in
 esac
 
 case "$ARCH" in
-  x86_64)  ARCH_TAG="x64" ;;
+  x86_64)        ARCH_TAG="x64" ;;
   aarch64|arm64) ARCH_TAG="arm64" ;;
   *)
     red "Unsupported architecture: $ARCH"
@@ -53,39 +54,44 @@ case "$ARCH" in
     ;;
 esac
 
-# opencode GitHub release asset naming convention:
-# opencode-<platform>-<arch>  (no extension on Unix)
-ASSET_NAME="opencode-${PLATFORM}-${ARCH_TAG}"
-DOWNLOAD_URL="https://github.com/sst/opencode/releases/latest/download/${ASSET_NAME}"
+# Asset names from https://github.com/anomalyco/opencode/releases
+ARCHIVE_NAME="opencode-${PLATFORM}-${ARCH_TAG}.tar.gz"
+DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/latest/download/${ARCHIVE_NAME}"
 
 # ── Install engine binary ────────────────────────────────────────────────────
-# Check if a local copy of the binary was placed next to this script (offline install)
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-LOCAL_BINARY="$SCRIPT_DIR/opencode"
+# Priority: already installed → local archive next to script → download
+
+LOCAL_ARCHIVE="$SCRIPT_DIR/$ARCHIVE_NAME"
 
 if [ -x "$BINARY_PATH" ]; then
   printf '%-42s' "Neusis Code engine already installed..."
   green "skipped"
   echo ""
-elif [ -f "$LOCAL_BINARY" ]; then
+elif [ -f "$LOCAL_ARCHIVE" ]; then
   printf '%-42s' "Installing Neusis Code engine (local)..."
   mkdir -p "$INSTALL_DIR"
-  cp "$LOCAL_BINARY" "$BINARY_PATH"
+  tar -xzf "$LOCAL_ARCHIVE" -C "$INSTALL_DIR" --strip-components=0 opencode 2>/dev/null || \
+    tar -xzf "$LOCAL_ARCHIVE" -C "$INSTALL_DIR" 2>/dev/null
   chmod +x "$BINARY_PATH"
   green "done"
   echo ""
 else
   printf '%-42s' "Downloading Neusis Code engine..."
   mkdir -p "$INSTALL_DIR"
-  if curl -fsSL "$DOWNLOAD_URL" -o "$BINARY_PATH" 2>/dev/null; then
+  TMP_ARCHIVE="$(mktemp).tar.gz"
+  if curl -fsSL "$DOWNLOAD_URL" -o "$TMP_ARCHIVE" 2>/dev/null; then
+    tar -xzf "$TMP_ARCHIVE" -C "$INSTALL_DIR" --strip-components=0 opencode 2>/dev/null || \
+      tar -xzf "$TMP_ARCHIVE" -C "$INSTALL_DIR" 2>/dev/null
+    rm -f "$TMP_ARCHIVE"
     chmod +x "$BINARY_PATH"
     green "done"
     echo ""
   else
+    rm -f "$TMP_ARCHIVE"
     red "failed"
     echo ""
     echo "Could not download the Neusis Code engine."
-    echo "For offline installs: place the opencode binary next to this script and run again."
+    echo "For offline installs: place $ARCHIVE_NAME next to this script and run again."
     exit 1
   fi
 fi

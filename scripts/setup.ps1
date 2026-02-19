@@ -1,10 +1,11 @@
-﻿#Requires -Version 5.0
+#Requires -Version 5.0
 <#
 .SYNOPSIS
     Neusis Code Setup — installs the engine and configures the provider.
 .DESCRIPTION
     Downloads the Neusis Code engine binary and writes the provider
     configuration file. Run once per machine before installing the extension.
+    For offline installs: place opencode-windows-x64.zip next to this script.
 #>
 
 Set-StrictMode -Version Latest
@@ -38,32 +39,47 @@ $archTag = switch ($env:PROCESSOR_ARCHITECTURE) {
     }
 }
 
-$assetName   = "opencode-win32-${archTag}.exe"
-$downloadUrl = "https://github.com/sst/opencode/releases/latest/download/${assetName}"
+# Asset names from https://github.com/anomalyco/opencode/releases
+$archiveName = "opencode-windows-${archTag}.zip"
+$downloadUrl = "https://github.com/anomalyco/opencode/releases/latest/download/${archiveName}"
+$localArchive = Join-Path $PSScriptRoot $archiveName
 
 # ── Install engine binary ────────────────────────────────────────────────────
-# Check if a local copy of the binary was placed next to this script (offline install)
-$LocalBinary = Join-Path $PSScriptRoot 'opencode.exe'
+# Priority: already installed → local archive next to script → download
 
 if (Test-Path $BinaryPath) {
     Write-Host ("Neusis Code engine already installed...".PadRight(42)) -NoNewline
     Write-Host "skipped" -ForegroundColor Green
-} elseif (Test-Path $LocalBinary) {
+} elseif (Test-Path $localArchive) {
     Write-Host ("Installing Neusis Code engine (local)...".PadRight(42)) -NoNewline
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-    Copy-Item -Path $LocalBinary -Destination $BinaryPath
+    Expand-Archive -Path $localArchive -DestinationPath $InstallDir -Force
+    # The zip may extract into a subfolder — find the binary
+    $extracted = Get-ChildItem -Path $InstallDir -Recurse -Filter 'opencode.exe' | Select-Object -First 1
+    if ($extracted -and $extracted.FullName -ne $BinaryPath) {
+        Move-Item -Path $extracted.FullName -Destination $BinaryPath -Force
+    }
     Write-Host "done" -ForegroundColor Green
 } else {
     Write-Host ("Downloading Neusis Code engine...".PadRight(42)) -NoNewline
+    $tmpArchive = Join-Path $env:TEMP "opencode-setup-$([System.IO.Path]::GetRandomFileName()).zip"
     try {
         New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $BinaryPath -UseBasicParsing
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $tmpArchive -UseBasicParsing
+        Expand-Archive -Path $tmpArchive -DestinationPath $InstallDir -Force
+        # The zip may extract into a subfolder — find the binary
+        $extracted = Get-ChildItem -Path $InstallDir -Recurse -Filter 'opencode.exe' | Select-Object -First 1
+        if ($extracted -and $extracted.FullName -ne $BinaryPath) {
+            Move-Item -Path $extracted.FullName -Destination $BinaryPath -Force
+        }
         Write-Host "done" -ForegroundColor Green
     } catch {
         Write-Host "failed" -ForegroundColor Red
         Write-Host "Could not download the Neusis Code engine."
-        Write-Host "For offline installs: place opencode.exe next to this script and run again."
+        Write-Host "For offline installs: place $archiveName next to this script and run again."
         exit 1
+    } finally {
+        Remove-Item -Path $tmpArchive -ErrorAction SilentlyContinue
     }
 }
 
