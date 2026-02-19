@@ -59,9 +59,20 @@ ASSET_NAME="opencode-${PLATFORM}-${ARCH_TAG}"
 DOWNLOAD_URL="https://github.com/sst/opencode/releases/latest/download/${ASSET_NAME}"
 
 # ── Install engine binary ────────────────────────────────────────────────────
+# Check if a local copy of the binary was placed next to this script (offline install)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+LOCAL_BINARY="$SCRIPT_DIR/opencode"
+
 if [ -x "$BINARY_PATH" ]; then
   printf '%-42s' "Neusis Code engine already installed..."
   green "skipped"
+  echo ""
+elif [ -f "$LOCAL_BINARY" ]; then
+  printf '%-42s' "Installing Neusis Code engine (local)..."
+  mkdir -p "$INSTALL_DIR"
+  cp "$LOCAL_BINARY" "$BINARY_PATH"
+  chmod +x "$BINARY_PATH"
+  green "done"
   echo ""
 else
   printf '%-42s' "Downloading Neusis Code engine..."
@@ -74,7 +85,7 @@ else
     red "failed"
     echo ""
     echo "Could not download the Neusis Code engine."
-    echo "Check your internet connection and try again."
+    echo "For offline installs: place the opencode binary next to this script and run again."
     exit 1
   fi
 fi

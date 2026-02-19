@@ -42,9 +42,17 @@ $assetName   = "opencode-win32-${archTag}.exe"
 $downloadUrl = "https://github.com/sst/opencode/releases/latest/download/${assetName}"
 
 # ── Install engine binary ────────────────────────────────────────────────────
+# Check if a local copy of the binary was placed next to this script (offline install)
+$LocalBinary = Join-Path $PSScriptRoot 'opencode.exe'
+
 if (Test-Path $BinaryPath) {
     Write-Host ("Neusis Code engine already installed...".PadRight(42)) -NoNewline
     Write-Host "skipped" -ForegroundColor Green
+} elseif (Test-Path $LocalBinary) {
+    Write-Host ("Installing Neusis Code engine (local)...".PadRight(42)) -NoNewline
+    New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+    Copy-Item -Path $LocalBinary -Destination $BinaryPath
+    Write-Host "done" -ForegroundColor Green
 } else {
     Write-Host ("Downloading Neusis Code engine...".PadRight(42)) -NoNewline
     try {
@@ -54,7 +62,7 @@ if (Test-Path $BinaryPath) {
     } catch {
         Write-Host "failed" -ForegroundColor Red
         Write-Host "Could not download the Neusis Code engine."
-        Write-Host "Check your internet connection and try again."
+        Write-Host "For offline installs: place opencode.exe next to this script and run again."
         exit 1
     }
 }
