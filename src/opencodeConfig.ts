@@ -1304,6 +1304,70 @@ export const updateSkill = (skillName: string, updates: Record<string, unknown>,
   }
 };
 
+// ============== PROVIDER MODEL REFRESH ==============
+
+/**
+ * Fetches the latest model list from the LiteLLM proxy using the API key
+ * already stored in opencode.json, then writes the updated models back.
+ * Safe to call on every activation — no-ops silently if config or network
+ * is unavailable.
+ */
+export const refreshProviderModels = async (log?: (msg: string) => void): Promise<boolean> => {
+  try {
+    const config = readConfigFile(CONFIG_FILE);
+
+    const provider = isPlainObject(config.provider) ? config.provider : null;
+    if (!provider) return false;
+
+    const litellm = isPlainObject(provider.litellm) ? provider.litellm : null;
+    if (!litellm) return false;
+
+    const options = isPlainObject(litellm.options) ? litellm.options : null;
+    if (!options) return false;
+
+    const baseURL = typeof options.baseURL === 'string' ? options.baseURL.replace(/\/+$/, '') : null;
+    const apiKey  = typeof options.apiKey  === 'string' ? options.apiKey  : null;
+    if (!baseURL || !apiKey) return false;
+
+    const modelsUrl = `${baseURL}/models?return_wildcard_routes=false&include_model_access_groups=false&only_model_access_groups=false&include_metadata=false`;
+
+    const response = await fetch(modelsUrl, {
+      headers: { 'accept': 'application/json', 'x-litellm-api-key': apiKey },
+    });
+    if (!response.ok) return false;
+
+    const data = await response.json() as { data?: Array<{ id: string }> };
+    const modelList = data?.data;
+    if (!Array.isArray(modelList) || modelList.length === 0) return false;
+
+    const newModels: Record<string, { name: string }> = {};
+    for (const model of modelList) {
+      if (typeof model.id !== 'string' || !model.id) continue;
+      const name = model.id
+        .replace(/[-_/]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+      newModels[model.id] = { name };
+    }
+    if (Object.keys(newModels).length === 0) return false;
+
+    // Deep-clone and update only the models key; leave everything else intact
+    const updatedLitellm  = { ...litellm,  models: newModels };
+    const updatedProvider = { ...provider, litellm: updatedLitellm };
+    const updatedConfig   = { ...config,   provider: updatedProvider };
+
+    writeConfig(updatedConfig, CONFIG_FILE);
+    log?.(`[OpenChamber] Provider models refreshed (${Object.keys(newModels).length} models)`);
+    return true;
+  } catch (err) {
+    log?.(`[OpenChamber] Provider model refresh failed: ${err instanceof Error ? err.message : String(err)}`);
+    return false;
+  }
+};
+
 export const deleteSkill = (skillName: string, workingDirectory?: string): void => {
   let deleted = false;
   

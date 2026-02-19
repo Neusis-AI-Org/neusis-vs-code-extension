@@ -4,6 +4,7 @@ import { AgentManagerPanelProvider } from './AgentManagerPanelProvider';
 import { SessionEditorPanelProvider } from './SessionEditorPanelProvider';
 import { createOpenCodeManager, type OpenCodeManager } from './opencode';
 import { startGlobalEventWatcher, stopGlobalEventWatcher, setChatViewProvider } from './sessionActivityWatcher';
+import { refreshProviderModels } from './opencodeConfig';
 
 let chatViewProvider: ChatViewProvider | undefined;
 let agentManagerProvider: AgentManagerPanelProvider | undefined;
@@ -555,9 +556,15 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Start OpenCode API without blocking activation.
-  // Blocking here delays webview resolution and causes a blank panel until startup completes.
-  void openCodeManager.start();
+  // Refresh provider models from the API, then start OpenCode.
+  // We race against a 3s timeout so a slow/offline network never delays startup.
+  void (async () => {
+    await Promise.race([
+      refreshProviderModels((msg) => outputChannel?.appendLine(msg)),
+      new Promise<void>(resolve => setTimeout(resolve, 3000)),
+    ]).catch(() => {});
+    void openCodeManager!.start();
+  })();
 }
 
 export async function deactivate() {
