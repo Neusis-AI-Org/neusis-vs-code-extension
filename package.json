@@ -1,5 +1,5 @@
 {
-  "name": "openchamber",
+  "name": "neusis-code",
   "displayName": "Neusis Code",
   "description": "AI coding assistant powered by Neusis Code.",
   "version": "1.6.8",
@@ -53,11 +53,6 @@
           "type": "webview",
           "id": "openchamber.chatView",
           "name": "Chat"
-        },
-        {
-          "type": "webview",
-          "id": "openchamber.claudeCodeView",
-          "name": "CC"
         }
       ]
     },
@@ -139,17 +134,6 @@
         "category": "Neusis Code",
         "title": "Settings",
         "icon": "$(settings-gear)"
-      },
-      {
-        "command": "openchamber.focusClaudeCode",
-        "category": "Neusis Code",
-        "title": "Focus Claude Code"
-      },
-      {
-        "command": "openchamber.claudeCode.newConversation",
-        "category": "Neusis Code",
-        "title": "New Conversation",
-        "icon": "$(add)"
       }
     ],
     "submenus": [
@@ -191,11 +175,6 @@
           "command": "openchamber.showSettings",
           "when": "view == openchamber.chatView",
           "group": "navigation@4"
-        },
-        {
-          "command": "openchamber.claudeCode.newConversation",
-          "when": "view == openchamber.claudeCodeView",
-          "group": "navigation@1"
         }
       ],
       "openchamber.submenu": [
@@ -222,55 +201,6 @@
           "type": "string",
           "default": "",
           "description": "Optional absolute path to the opencode CLI binary. Useful if PATH lookup fails. Requires window reload or API restart to apply."
-        },
-        "openchamber.claudeCodeBinary": {
-          "type": "string",
-          "default": "",
-          "description": "Optional absolute path to the Claude Code CLI binary (claude). Leave empty to use PATH lookup."
-        },
-        "openchamber.claudeCode.permissionMode": {
-          "type": "string",
-          "default": "acceptEdits",
-          "enum": [
-            "default",
-            "acceptEdits",
-            "plan",
-            "dontAsk",
-            "bypassPermissions"
-          ],
-          "enumDescriptions": [
-            "Standard permission prompts — tools may be denied in non-interactive mode",
-            "Auto-accept file edits (Read, Write, Edit, Glob, Grep) while blocking arbitrary Bash (Recommended)",
-            "Read-only plan mode — no tool execution, only planning",
-            "Auto-approve all tools without asking",
-            "Bypass ALL permission checks (use only in trusted environments)"
-          ],
-          "description": "Permission mode for Claude Code CLI. Controls which tools are auto-approved."
-        },
-        "openchamber.claudeCode.allowedTools": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Additional tool names to allow (e.g. \"Bash(git:*)\" \"Edit\"). Passed as --allowedTools to Claude CLI."
-        },
-        "openchamber.claudeCode.model": {
-          "type": "string",
-          "default": "",
-          "enum": [
-            "",
-            "claude-sonnet-4-5-20250929",
-            "claude-opus-4-6",
-            "claude-haiku-4-5-20251001"
-          ],
-          "enumDescriptions": [
-            "Use CLI default model",
-            "Claude Sonnet 4.5",
-            "Claude Opus 4.6",
-            "Claude Haiku 4.5"
-          ],
-          "description": "Model to use for Claude Code. Leave empty to use the CLI default."
         }
       }
     }

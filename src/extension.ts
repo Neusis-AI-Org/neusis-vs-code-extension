@@ -1,13 +1,11 @@
 import * as vscode from 'vscode';
 import { ChatViewProvider } from './ChatViewProvider';
-import { ClaudeCodeViewProvider } from './ClaudeCodeViewProvider';
 import { AgentManagerPanelProvider } from './AgentManagerPanelProvider';
 import { SessionEditorPanelProvider } from './SessionEditorPanelProvider';
 import { createOpenCodeManager, type OpenCodeManager } from './opencode';
 import { startGlobalEventWatcher, stopGlobalEventWatcher, setChatViewProvider } from './sessionActivityWatcher';
 
 let chatViewProvider: ChatViewProvider | undefined;
-let claudeCodeViewProvider: ClaudeCodeViewProvider | undefined;
 let agentManagerProvider: AgentManagerPanelProvider | undefined;
 let sessionEditorProvider: SessionEditorPanelProvider | undefined;
 let openCodeManager: OpenCodeManager | undefined;
@@ -128,16 +126,6 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.window.registerWebviewViewProvider(
       ChatViewProvider.viewType,
       chatViewProvider,
-      { webviewOptions: { retainContextWhenHidden: true } }
-    )
-  );
-
-  // Create Claude Code view provider
-  claudeCodeViewProvider = new ClaudeCodeViewProvider(context, context.extensionUri);
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      ClaudeCodeViewProvider.viewType,
-      claudeCodeViewProvider,
       { webviewOptions: { retainContextWhenHidden: true } }
     )
   );
@@ -349,18 +337,6 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('openchamber.focusClaudeCode', async () => {
-      await vscode.commands.executeCommand('openchamber.claudeCodeView.focus');
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('openchamber.claudeCode.newConversation', () => {
-      claudeCodeViewProvider?.newConversation();
-    })
-  );
-
-  context.subscriptions.push(
     vscode.commands.registerCommand('openchamber.showOpenCodeStatus', async () => {
       const config = vscode.workspace.getConfiguration('openchamber');
       const configuredApiUrl = (config.get<string>('apiUrl') || '').trim();
@@ -539,7 +515,6 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.window.onDidChangeActiveColorTheme((theme) => {
       chatViewProvider?.updateTheme(theme.kind);
-      claudeCodeViewProvider?.updateTheme(theme.kind);
       agentManagerProvider?.updateTheme(theme.kind);
       sessionEditorProvider?.updateTheme(theme.kind);
     })
@@ -556,7 +531,6 @@ export async function activate(context: vscode.ExtensionContext) {
         event.affectsConfiguration('workbench.preferredDarkColorTheme')
       ) {
         chatViewProvider?.updateTheme(vscode.window.activeColorTheme.kind);
-        claudeCodeViewProvider?.updateTheme(vscode.window.activeColorTheme.kind);
         agentManagerProvider?.updateTheme(vscode.window.activeColorTheme.kind);
         sessionEditorProvider?.updateTheme(vscode.window.activeColorTheme.kind);
       }
@@ -591,8 +565,6 @@ export async function deactivate() {
   await openCodeManager?.stop();
   openCodeManager = undefined;
   chatViewProvider = undefined;
-  claudeCodeViewProvider?.dispose();
-  claudeCodeViewProvider = undefined;
   agentManagerProvider = undefined;
   sessionEditorProvider = undefined;
   outputChannel?.dispose();
