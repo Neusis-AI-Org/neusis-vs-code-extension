@@ -259,7 +259,7 @@ function getCandidateBaseUrls(serverUrl: string): string[] {
 }
 
 async function waitForReady(serverUrl: string, timeoutMs = 15000): Promise<ReadyResult> {
-  const outputChannel = vscode.window.createOutputChannel('OpenChamberManager');
+  const outputChannel = vscode.window.createOutputChannel('Neusis Code');
   const start = Date.now();
   const candidates = getCandidateBaseUrls(serverUrl);
   let attempts = 0;
@@ -469,17 +469,17 @@ export function createOpenCodeManager(_context: vscode.ExtensionContext): OpenCo
         if (!cliPath) {
           cliPath = resolveOpencodeCliPath();
         }
-        setStatus('error', 'OpenCode CLI not found. Install it and ensure it\'s in PATH.');
+        setStatus('error', 'Neusis Code engine not found. Please run the Neusis Code setup script.');
         vscode.window.showErrorMessage(
-          'OpenCode CLI not found. Please install it and ensure it\'s in PATH.',
-          'More Info'
+          'Neusis Code engine not found. Please run the Neusis Code setup script.',
+          'Setup Guide'
         ).then(selection => {
-          if (selection === 'More Info') {
-            vscode.env.openExternal(vscode.Uri.parse('https://github.com/anomalyco/opencode'));
+          if (selection === 'Setup Guide') {
+            vscode.env.openExternal(vscode.Uri.parse('https://github.com/Neusis/openchamber/releases/latest'));
           }
         });
       } else {
-        setStatus('error', `Failed to start OpenCode: ${message}`);
+        setStatus('error', `Neusis Code engine failed to start: ${message}`);
       }
     }
   }
