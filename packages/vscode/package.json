@@ -2,7 +2,7 @@
   "name": "neusis-code",
   "displayName": "Neusis Code",
   "description": "AI coding assistant powered by Neusis Code",
-  "version": "1.7.6",
+  "version": "1.7.7",
   "publisher": "neusis-ai",
   "private": true,
   "repository": {
