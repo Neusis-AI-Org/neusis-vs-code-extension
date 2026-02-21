@@ -408,7 +408,7 @@ export function DesktopHostSwitcherDialog({
             Instance
           </DialogTitle>
           <DialogDescription>
-            Switch between Local and remote OpenChamber servers
+            Switch between Local and remote Neusis Code servers
           </DialogDescription>
         </DialogHeader>
       )}

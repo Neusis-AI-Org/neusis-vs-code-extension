@@ -178,7 +178,7 @@ export function OnboardingScreen({ onCliAvailable }: OnboardingScreenProps) {
       <div className="w-full space-y-4 text-center">
         <div className="space-y-4">
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-            Welcome to OpenChamber
+            Welcome to Neusis Code
           </h1>
           <p className="text-muted-foreground">
             <a

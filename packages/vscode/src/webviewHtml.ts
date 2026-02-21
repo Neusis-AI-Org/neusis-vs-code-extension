@@ -83,11 +83,7 @@ export function getWebviewHtml(options: WebviewHtmlOptions): string {
     #initial-loading .logo-fill-solid {
       fill: var(--vscode-foreground);
     }
-    #initial-loading .logo-fill-dim {
-      fill: var(--vscode-foreground);
-      opacity: 0.4;
-    }
-    /* Animation on inner logo only, like OpenChamberLogo.tsx */
+    /* Animation on inner N logo */
     #initial-loading .logo-inner {
       animation: logoPulse 3s ease-in-out infinite;
     }
@@ -110,7 +106,7 @@ export function getWebviewHtml(options: WebviewHtmlOptions): string {
   <title>Neusis Code</title>
 </head>
 <body>
-  <!-- Initial loading screen with simplified OpenChamber logo -->
+  <!-- Initial loading screen with isometric cube logo (N on top face) -->
   <div id="initial-loading">
     <svg class="logo" width="70" height="70" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
       <!-- Left face -->
@@ -119,11 +115,9 @@ export function getWebviewHtml(options: WebviewHtmlOptions): string {
       <path class="logo-fill logo-stroke" d="M50 50 L91.568 26 L91.568 74 L50 98 Z" stroke-width="2" stroke-linejoin="round"/>
       <!-- Top face (no fill, stroke only) -->
       <path class="logo-stroke" d="M50 2 L8.432 26 L50 50 L91.568 26 Z" fill="none" stroke-width="2" stroke-linejoin="round"/>
-      
-      <!-- OpenCode logo on top face with pulse animation -->
+      <!-- N logo on top face with pulse animation -->
       <g class="logo-inner" transform="matrix(0.866, 0.5, -0.866, 0.5, 50, 26) scale(0.75)">
-        <path class="logo-fill-solid" fill-rule="evenodd" clip-rule="evenodd" d="M-16 -20 L16 -20 L16 20 L-16 20 Z M-8 -12 L-8 12 L8 12 L8 -12 Z"/>
-        <path class="logo-fill-dim" d="M-8 -4 L8 -4 L8 12 L-8 12 Z"/>
+        <path class="logo-fill-solid" fill-rule="evenodd" d="M-10,-14 L-4,-14 L4,14 L10,14 L10,-14 L4,-14 L-4,14 L-10,14 Z"/>
       </g>
     </svg>
     <div class="status-text" id="loading-status">

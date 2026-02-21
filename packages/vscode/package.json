@@ -42,7 +42,7 @@
       "activitybar": [
         {
           "id": "openchamber",
-          "title": "OpenChamber",
+          "title": "Neusis Code",
           "icon": "assets/icon.svg"
         }
       ]
@@ -59,7 +59,7 @@
     "commands": [
       {
         "command": "openchamber.openSidebar",
-        "category": "OpenChamber",
+        "category": "Neusis Code",
         "title": "Open Sidebar",
         "icon": {
           "light": "assets/icon.svg",
@@ -68,34 +68,34 @@
       },
       {
         "command": "openchamber.focusChat",
-        "category": "OpenChamber",
+        "category": "Neusis Code",
         "title": "Focus Chat"
       },
       {
         "command": "openchamber.restartApi",
-        "category": "OpenChamber",
+        "category": "Neusis Code",
         "title": "Restart API Connection"
       },
       {
         "command": "openchamber.showOpenCodeStatus",
-        "category": "OpenChamber",
+        "category": "Neusis Code",
         "title": "Show OpenCode Status"
       },
       {
         "command": "openchamber.openAgentManager",
-        "category": "OpenChamber",
+        "category": "Neusis Code",
         "title": "Open Agent Manager",
         "icon": "$(circuit-board)"
       },
       {
         "command": "openchamber.openActiveSessionInEditor",
-        "category": "OpenChamber",
+        "category": "Neusis Code",
         "title": "Open Active Session in Editor",
         "icon": "$(link-external)"
       },
       {
         "command": "openchamber.openNewSessionInEditor",
-        "category": "OpenChamber",
+        "category": "Neusis Code",
         "title": "Open New Session in Editor",
         "icon": {
           "light": "assets/icon.svg",
@@ -104,34 +104,34 @@
       },
       {
         "command": "openchamber.openCurrentOrNewSessionInEditor",
-        "category": "OpenChamber",
+        "category": "Neusis Code",
         "title": "Open Session in Editor",
         "icon": "$(link-external)"
       },
       {
         "command": "openchamber.addToContext",
-        "category": "OpenChamber",
+        "category": "Neusis Code",
         "title": "Add to Context"
       },
       {
         "command": "openchamber.explain",
-        "category": "OpenChamber",
+        "category": "Neusis Code",
         "title": "Explain"
       },
       {
         "command": "openchamber.improveCode",
-        "category": "OpenChamber",
+        "category": "Neusis Code",
         "title": "Improve Code"
       },
       {
         "command": "openchamber.newSession",
-        "category": "OpenChamber",
+        "category": "Neusis Code",
         "title": "New Session",
         "icon": "$(add)"
       },
       {
         "command": "openchamber.showSettings",
-        "category": "OpenChamber",
+        "category": "Neusis Code",
         "title": "Settings",
         "icon": "$(settings-gear)"
       }
@@ -139,7 +139,7 @@
     "submenus": [
       {
         "id": "openchamber.submenu",
-        "label": "OpenChamber"
+        "label": "Neusis Code"
       }
     ],
     "menus": {
@@ -190,7 +190,7 @@
       ]
     },
     "configuration": {
-      "title": "OpenChamber",
+      "title": "Neusis Code",
       "properties": {
         "openchamber.apiUrl": {
           "type": "string",
