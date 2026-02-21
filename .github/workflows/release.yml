@@ -58,5 +58,6 @@ jobs:
             packages/vscode/*.vsix
             scripts/setup.sh
             scripts/setup.ps1
+            scripts/setup.bat
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
