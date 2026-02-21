@@ -209,12 +209,33 @@ $fetchFailed  = $false
 
 try {
     $headers   = @{ 'accept' = 'application/json'; 'x-litellm-api-key' = $apiKey }
+
+    # Fetch context/output limits from model/info
+    $limitsMap = @{}
+    try {
+        $infoResp = Invoke-RestMethod -Uri "$BaseURL/model/info" -Headers $headers -UseBasicParsing
+        foreach ($entry in $infoResp.data) {
+            $ctx = $entry.model_info.max_input_tokens
+            $out = $entry.model_info.max_output_tokens
+            if ($ctx -and $out) {
+                $limitsMap[$entry.model_name] = @{ context = $ctx; output = $out }
+            }
+        }
+    } catch {
+        # limits unavailable, skip
+    }
+
     $modelsUri = "$BaseURL/models?return_wildcard_routes=false&include_model_access_groups=false&only_model_access_groups=false&include_metadata=false"
     $resp = Invoke-RestMethod -Uri $modelsUri -Headers $headers -UseBasicParsing
     foreach ($model in $resp.data) {
-        $id   = $model.id
-        $name = ConvertTo-DisplayName $id
-        $modelsLines += "        `"$id`": {`n          `"name`": `"$name`"`n        }"
+        $id     = $model.id
+        $name   = ConvertTo-DisplayName $id
+        $limits = $limitsMap[$id]
+        if ($limits) {
+            $modelsLines += "        `"$id`": {`n          `"name`": `"$name`",`n          `"limit`": {`n            `"context`": $($limits.context),`n            `"output`": $($limits.output)`n          }`n        }"
+        } else {
+            $modelsLines += "        `"$id`": {`n          `"name`": `"$name`"`n        }"
+        }
     }
     if ($modelsLines.Count -gt 0) {
         Write-Status "$($modelsLines.Count) models loaded" -Type success
