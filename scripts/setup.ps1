@@ -331,7 +331,7 @@ $modelsBlock
 }
 "@
 
-[System.IO.File]::WriteAllText($ConfigPath, $config, [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText($ConfigPath, $config, (New-Object System.Text.UTF8Encoding $false))
 Write-Status "Configuration saved" -Type success
 Write-Detail $ConfigPath
 
