@@ -144,7 +144,7 @@ export async function activate(context: vscode.ExtensionContext) {
         await vscode.commands.executeCommand('openchamber.chatView.focus');
       } catch (e) {
         outputChannel?.appendLine(`[OpenChamber] openchamber.chatView.focus failed: ${e}`);
-        vscode.window.showErrorMessage(`OpenChamber: Failed to open sidebar - ${e}`);
+        vscode.window.showErrorMessage(`Neusis Code: Failed to open sidebar - ${e}`);
       }
     })
   );
@@ -183,7 +183,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('openchamber.openActiveSessionInEditor', () => {
       if (!activeSessionId) {
-        vscode.window.showInformationMessage('OpenChamber: No active session');
+        vscode.window.showInformationMessage('Neusis Code: No active session');
         return;
       }
       sessionEditorProvider?.createOrShow(activeSessionId, activeSessionTitle ?? undefined);
@@ -219,9 +219,9 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('openchamber.restartApi', async () => {
       try {
         await openCodeManager?.restart();
-        vscode.window.showInformationMessage('OpenChamber: API connection restarted');
+        vscode.window.showInformationMessage('Neusis Code: API connection restarted');
       } catch (e) {
-        vscode.window.showErrorMessage(`OpenChamber: Failed to restart API - ${e}`);
+        vscode.window.showErrorMessage(`Neusis Code: Failed to restart API - ${e}`);
       }
     })
   );
@@ -230,7 +230,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('openchamber.addToContext', async () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
-        vscode.window.showWarningMessage('OpenChamber [Add to Context]:No active editor');
+        vscode.window.showWarningMessage('Neusis Code [Add to Context]:No active editor');
         return;
       }
 
@@ -238,7 +238,7 @@ export async function activate(context: vscode.ExtensionContext) {
       const selectedText = editor.document.getText(selection);
 
       if (!selectedText) {
-        vscode.window.showWarningMessage('OpenChamber [Add to Context]: No text selected');
+        vscode.window.showWarningMessage('Neusis Code [Add to Context]: No text selected');
         return;
       }
 
@@ -266,7 +266,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('openchamber.explain', async () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
-        vscode.window.showWarningMessage('OpenChamber [Explain]: No active editor');
+        vscode.window.showWarningMessage('Neusis Code [Explain]: No active editor');
         return;
       }
 
@@ -298,7 +298,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('openchamber.improveCode', async () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
-        vscode.window.showWarningMessage('OpenChamber [Improve Code]: No active editor');
+        vscode.window.showWarningMessage('Neusis Code [Improve Code]: No active editor');
         return;
       }
 
@@ -306,7 +306,7 @@ export async function activate(context: vscode.ExtensionContext) {
       const selectedText = editor.document.getText(selection);
 
       if (!selectedText) {
-        vscode.window.showWarningMessage('OpenChamber [Improve Code]: No text selected');
+        vscode.window.showWarningMessage('Neusis Code [Improve Code]: No text selected');
         return;
       }
 
@@ -447,7 +447,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
       const lines = [
         `Time: ${new Date().toISOString()}`,
-        `OpenChamber version: ${extensionVersion || '(unknown)'}`,
+        `Neusis Code version: ${extensionVersion || '(unknown)'}`,
         `OpenCode Version: ${debug?.version ?? '(unknown)'}`,
         `VS Code version: ${vscode.version}`,
         `Platform: ${process.platform} ${process.arch}`,

@@ -107,7 +107,7 @@ export function getWebviewHtml(options: WebviewHtmlOptions): string {
       50% { opacity: 1; }
     }
   </style>
-  <title>OpenChamber</title>
+  <title>Neusis Code</title>
 </head>
 <body>
   <!-- Initial loading screen with simplified OpenChamber logo -->
@@ -127,9 +127,9 @@ export function getWebviewHtml(options: WebviewHtmlOptions): string {
       </g>
     </svg>
     <div class="status-text" id="loading-status">
-      ${initialStatus === 'connecting' ? 'Starting OpenCode API…' : initialStatus === 'connected' ? 'Initializing…' : 'Connecting…'}
+      ${initialStatus === 'connecting' ? 'Starting Neusis Code API…' : initialStatus === 'connected' ? 'Initializing…' : 'Connecting…'}
     </div>
-    ${!cliAvailable ? `<div class="error-text">OpenCode CLI not found. Please install it first.</div>` : ''}
+    ${!cliAvailable ? `<div class="error-text">Neusis Code CLI not found. Please install it first.</div>` : ''}
   </div>
   
   <div id="root"></div>
@@ -155,7 +155,7 @@ export function getWebviewHtml(options: WebviewHtmlOptions): string {
         var statusEl = document.getElementById('loading-status');
         if (statusEl) {
           if (msg.status === 'connecting') {
-            statusEl.textContent = 'Starting OpenCode API…';
+            statusEl.textContent = 'Starting Neusis Code API…';
             statusEl.classList.remove('error-text');
           } else if (msg.status === 'connected') {
             statusEl.textContent = 'Connected!';

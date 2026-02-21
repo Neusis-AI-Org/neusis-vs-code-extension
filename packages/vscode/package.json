@@ -1,13 +1,13 @@
 {
-  "name": "openchamber",
-  "displayName": "OpenChamber",
-  "description": "AI coding assistant powered by OpenCode",
+  "name": "neusis-code",
+  "displayName": "Neusis Code",
+  "description": "AI coding assistant powered by Neusis Code",
   "version": "1.7.3",
-  "publisher": "fedaykindev",
+  "publisher": "neusis-ai",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/btriapitsyn/openchamber.git"
+    "url": "https://github.com/Neusis-AI-Org/neusis-vs-code-extension.git"
   },
   "qna": "https://discord.gg/ZYRSdnwwKA",
   "license": "MIT",
