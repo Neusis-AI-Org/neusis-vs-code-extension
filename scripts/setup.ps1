@@ -79,6 +79,52 @@ function Write-SectionDivider {
     Write-Host ""
 }
 
+function Invoke-Download {
+    param([string]$Uri, [string]$OutFile)
+    $client = [System.Net.Http.HttpClient]::new()
+    try {
+        $response = $client.GetAsync($Uri, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+        $response.EnsureSuccessStatusCode() | Out-Null
+        $totalBytes  = $response.Content.Headers.ContentLength
+        $stream      = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+        $fileStream  = [System.IO.FileStream]::new($OutFile, [System.IO.FileMode]::Create)
+        try {
+            $buffer    = [byte[]]::new(81920)
+            $received  = [long]0
+            $lastPrint = [long]0
+            $barWidth  = 28
+
+            while ($true) {
+                $read = $stream.Read($buffer, 0, $buffer.Length)
+                if ($read -eq 0) { break }
+                $fileStream.Write($buffer, 0, $read)
+                $received += $read
+
+                if (($received - $lastPrint) -ge 512KB -or ($totalBytes -gt 0 -and $received -eq $totalBytes)) {
+                    $mb = '{0:N1}' -f ($received / 1MB)
+                    if ($totalBytes -gt 0) {
+                        $pct    = [int][math]::Round(($received / $totalBytes) * 100)
+                        $filled = [int][math]::Round(($pct / 100) * $barWidth)
+                        $empty  = $barWidth - $filled
+                        $bar    = ([string][char]0x2588 * $filled) + ([string][char]0x2591 * $empty)
+                        $total  = '{0:N1}' -f ($totalBytes / 1MB)
+                        Write-Host "`r      $bar  $mb / $total MB  ($pct%)" -NoNewline
+                    } else {
+                        Write-Host "`r      $mb MB downloaded..." -NoNewline
+                    }
+                    $lastPrint = $received
+                }
+            }
+            Write-Host ""   # end progress line
+        } finally {
+            $fileStream.Dispose()
+            $stream.Dispose()
+        }
+    } finally {
+        $client.Dispose()
+    }
+}
+
 function Write-Fatal {
     param([string]$Message)
     Write-Host ""
@@ -144,7 +190,7 @@ if (Test-Path $BinaryPath) {
     $tmpArchive = Join-Path $env:TEMP "opencode-setup-$([System.IO.Path]::GetRandomFileName()).zip"
     try {
         New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $tmpArchive -UseBasicParsing
+        Invoke-Download -Uri $downloadUrl -OutFile $tmpArchive
         Expand-Archive -Path $tmpArchive -DestinationPath $InstallDir -Force
         $extracted = Get-ChildItem -Path $InstallDir -Recurse -Filter 'opencode.exe' | Select-Object -First 1
         if ($extracted -and $extracted.FullName -ne $BinaryPath) {
