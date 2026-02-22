@@ -18,7 +18,7 @@ import { RiCheckLine, RiFileCopyLine, RiChatNewLine, RiArrowGoBackLine, RiGitBra
 import { ArrowsMerge } from '@/components/icons/ArrowsMerge';
 import type { ContentChangeReason } from '@/hooks/useChatScrollManager';
 
-import { SimpleMarkdownRenderer } from '../MarkdownRenderer';
+import { MarkdownRenderer, SimpleMarkdownRenderer } from '../MarkdownRenderer';
 import { useMessageStore } from '@/stores/messageStore';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { useUIStore } from '@/stores/useUIStore';
@@ -527,7 +527,7 @@ const AssistantMessageBody: React.FC<Omit<MessageBodyProps, 'isUser'>> = ({
     errorMessage,
 }) => {
 
-    void _streamPhase;
+    const streamPhase = _streamPhase;
     void _allowAnimation;
     const [copyHintVisible, setCopyHintVisible] = React.useState(false);
     const copyHintTimeoutRef = React.useRef<number | null>(null);
@@ -1109,6 +1109,15 @@ const AssistantMessageBody: React.FC<Omit<MessageBodyProps, 'isUser'>> = ({
         summaryBody &&
         summaryBody.trim().length > 0;
 
+    // Live streaming text: render text parts directly when the summary body
+    // is not yet available (i.e. during streaming, before finish === 'stop').
+    const liveStreamingText = React.useMemo(() => {
+        if (showSummaryBody) return '';
+        return flattenAssistantTextParts(assistantTextParts);
+    }, [showSummaryBody, assistantTextParts]);
+
+    const showLiveStreamingText = !showSummaryBody && liveStreamingText.trim().length > 0;
+
     const showErrorMessage = Boolean(errorMessage);
 
     const shouldShowFooter = isLastAssistantInTurn && hasTextContent && (hasStopFinish || Boolean(errorMessage));
@@ -1245,6 +1254,19 @@ const AssistantMessageBody: React.FC<Omit<MessageBodyProps, 'isUser'>> = ({
                                 <SimpleMarkdownRenderer content={errorMessage ?? ''} />
                             </div>
                         </FadeInOnReveal>
+                    )}
+                    {showLiveStreamingText && (
+                        <div
+                            key="live-streaming-text"
+                            className="group/assistant-text relative break-words"
+                        >
+                            <MarkdownRenderer
+                                content={liveStreamingText}
+                                messageId={messageId}
+                                isAnimated={false}
+                                isStreaming={streamPhase === 'streaming'}
+                            />
+                        </div>
                     )}
                     {showSummaryBody && (
                         <FadeInOnReveal key="summary-body">
