@@ -555,6 +555,43 @@ const AssistantMessageBody: React.FC<Omit<MessageBodyProps, 'isUser'>> = ({
         return visibleParts.filter((part) => part.type === 'text');
     }, [visibleParts]);
 
+    // Split text parts into "interleaved" (before/between tool parts) and "trailing" (after all tools).
+    // This preserves the natural chronological order: intro text → tools → final answer.
+    const { interleavedTextPartIds, trailingTextParts } = React.useMemo(() => {
+        const interleaved = new Set<string>();
+        const trailing: Part[] = [];
+
+        // Find the index of the last tool/reasoning part in visibleParts
+        let lastToolOrReasoningIndex = -1;
+        visibleParts.forEach((part, index) => {
+            if (part.type === 'tool' || part.type === 'reasoning') {
+                lastToolOrReasoningIndex = index;
+            }
+        });
+
+        if (lastToolOrReasoningIndex === -1) {
+            // No tools at all — everything is trailing text
+            return { interleavedTextPartIds: new Set<string>(), trailingTextParts: assistantTextParts };
+        }
+
+        visibleParts.forEach((part, index) => {
+            if (part.type !== 'text') return;
+            const text = extractTextContent(part);
+            if (!text || text.trim().length === 0) return;
+
+            if (index < lastToolOrReasoningIndex) {
+                // This text part appears before some tool — it's interleaved
+                const partId = part.id || `${messageId}-text-${index}`;
+                interleaved.add(partId);
+            } else {
+                // This text part appears after all tools — it's trailing
+                trailing.push(part);
+            }
+        });
+
+        return { interleavedTextPartIds: interleaved, trailingTextParts: trailing };
+    }, [visibleParts, assistantTextParts, messageId]);
+
     const createSessionFromAssistantMessage = useSessionStore((state) => state.createSessionFromAssistantMessage);
     const openMultiRunLauncherWithPrompt = useUIStore((state) => state.openMultiRunLauncherWithPrompt);
     const isLastAssistantInTurn = turnGroupingContext?.isLastAssistantInTurn ?? false;
@@ -886,31 +923,101 @@ const AssistantMessageBody: React.FC<Omit<MessageBodyProps, 'isUser'>> = ({
 
 
     const renderedParts = React.useMemo(() => {
-        const rendered: React.ReactNode[] = [];
+        // Map each part to its index in visibleParts for position tracking
+        const partToVisibleIndex = new Map<Part, number>();
+        visibleParts.forEach((part, idx) => partToVisibleIndex.set(part, idx));
 
-        const renderActivitySegments = (afterToolPartId: string | null) => {
-            if (!turnGroupingContext || !shouldRenderActivityGroup) {
-                return;
+        // Collect positions of interleaved text parts so we can split activity
+        // segments at text boundaries (text between tool phases should visually
+        // separate tool groups rather than being lumped after one big group).
+        const interleavedTextPositionSet = new Set<number>();
+        visibleParts.forEach((part, index) => {
+            if (part.type !== 'text') return;
+            const partId = part.id || `${messageId}-text-${index}`;
+            if (!interleavedTextPartIds.has(partId)) return;
+            const text = extractTextContent(part);
+            if (text && text.trim().length > 0) {
+                interleavedTextPositionSet.add(index);
+            }
+        });
+
+        // Unified list of positioned items — everything goes here so that
+        // text, activity-group segments, standalone tools, and individual
+        // tools/reasoning are rendered in the correct chronological order.
+        const positionedItems: Array<{
+            position: number;
+            isText: boolean;
+            element: React.ReactNode;
+        }> = [];
+
+        // Track which activity segments have been emitted
+        const emittedSegmentIds = new Set<string>();
+
+        // Helper: split a segment's activity parts into sub-groups at interleaved
+        // text boundaries and push a ProgressiveGroup for each sub-group.
+        // This ensures that text like "Now let me get more details..." visually
+        // separates different phases of tool activity rather than all tools
+        // being collapsed into one giant activity group.
+        const splitAndRenderSegment = (
+            segment: typeof activityGroupSegmentsForMessage[number],
+        ): void => {
+            if (!turnGroupingContext || !shouldRenderActivityGroup) return;
+            if (emittedSegmentIds.has(segment.id)) return;
+
+            // Filter out reasoning if showReasoningTraces is off.
+            const visibleSegmentParts = !showReasoningTraces
+                ? segment.parts.filter((activity) => activity.kind !== 'reasoning')
+                : segment.parts;
+
+            if (visibleSegmentParts.length === 0) return;
+            emittedSegmentIds.add(segment.id);
+
+            // Get each activity's position in visibleParts, sorted chronologically
+            const partsWithPositions = visibleSegmentParts
+                .map((activity) => ({
+                    activity,
+                    position: partToVisibleIndex.get(activity.part) ?? Infinity,
+                }))
+                .sort((a, b) => a.position - b.position);
+
+            // Split into sub-groups at text boundaries
+            const subGroups: Array<typeof partsWithPositions> = [];
+            let currentGroup: typeof partsWithPositions = [];
+
+            for (const item of partsWithPositions) {
+                if (currentGroup.length > 0) {
+                    const prevPosition = currentGroup[currentGroup.length - 1].position;
+                    // Check if any interleaved text sits between the previous activity and this one
+                    let hasTextBetween = false;
+                    for (let pos = prevPosition + 1; pos < item.position; pos++) {
+                        if (interleavedTextPositionSet.has(pos)) {
+                            hasTextBetween = true;
+                            break;
+                        }
+                    }
+                    if (hasTextBetween) {
+                        subGroups.push(currentGroup);
+                        currentGroup = [];
+                    }
+                }
+                currentGroup.push(item);
+            }
+            if (currentGroup.length > 0) {
+                subGroups.push(currentGroup);
             }
 
-            activityGroupSegmentsForMessage
-                .filter((segment) => (segment.afterToolPartId ?? null) === afterToolPartId)
-                .forEach((segment) => {
-                    // Filter out reasoning if showReasoningTraces is off.
-                    // Justification parts are already filtered at the source (useTurnGrouping)
-                    // based on showTextJustificationActivity, so we keep them here.
-                    const visibleSegmentParts = !showReasoningTraces
-                        ? segment.parts.filter((activity) => activity.kind !== 'reasoning')
-                        : segment.parts;
+            // Create a ProgressiveGroup for each sub-group
+            subGroups.forEach((group, groupIndex) => {
+                const groupActivities = group.map((g) => g.activity);
+                const groupPosition = group[0].position;
 
-                    if (visibleSegmentParts.length === 0) {
-                        return;
-                    }
-
-                    rendered.push(
+                positionedItems.push({
+                    position: groupPosition,
+                    isText: false,
+                    element: (
                         <ProgressiveGroup
-                            key={`progressive-group-${segment.id}`}
-                            parts={visibleSegmentParts}
+                            key={`progressive-group-${segment.id}-sub-${groupIndex}`}
+                            parts={groupActivities}
                             isExpanded={turnGroupingContext.isGroupExpanded}
                             onToggle={turnGroupingContext.toggleGroup}
                             syntaxTheme={syntaxTheme}
@@ -921,42 +1028,87 @@ const AssistantMessageBody: React.FC<Omit<MessageBodyProps, 'isUser'>> = ({
                             onContentChange={onContentChange}
                             diffStats={turnGroupingContext.diffStats}
                         />
-                    );
+                    ),
                 });
+            });
         };
 
-        // Activity groups and standalone tasks are interleaved in message order.
-        // Note: Reasoning parts are rendered in the visibleParts.forEach loop below
-        // when Activity group isn't showing, to maintain proper ordering with tools.
-        renderActivitySegments(null);
+        // --- Activity-group path: place segments & standalone tools by position ---
+        if (shouldRenderActivityGroup) {
+            // Initial segments (afterToolPartId === null)
+            activityGroupSegmentsForMessage
+                .filter((segment) => (segment.afterToolPartId ?? null) === null)
+                .forEach((segment) => {
+                    splitAndRenderSegment(segment);
+                });
 
-        standaloneToolParts.forEach((standaloneToolPart) => {
-            rendered.push(
-                <FadeInOnReveal key={`standalone-tool-${standaloneToolPart.id}`}>
-                    <ToolPart
-                        part={standaloneToolPart}
-                        isExpanded={expandedTools.has(standaloneToolPart.id)}
-                        onToggle={onToggleTool}
-                        syntaxTheme={syntaxTheme}
-                        isMobile={isMobile}
-                        onContentChange={onContentChange}
-                        hasPrevTool={false}
-                        hasNextTool={false}
-                    />
-                </FadeInOnReveal>
-            );
+            // Standalone tools and their associated segments
+            standaloneToolParts.forEach((standaloneToolPart) => {
+                const toolPosition = partToVisibleIndex.get(standaloneToolPart) ?? visibleParts.length;
 
-            renderActivitySegments(standaloneToolPart.id);
-        });
+                positionedItems.push({
+                    position: toolPosition,
+                    isText: false,
+                    element: (
+                        <FadeInOnReveal key={`standalone-tool-${standaloneToolPart.id}`}>
+                            <ToolPart
+                                part={standaloneToolPart}
+                                isExpanded={expandedTools.has(standaloneToolPart.id)}
+                                onToggle={onToggleTool}
+                                syntaxTheme={syntaxTheme}
+                                isMobile={isMobile}
+                                onContentChange={onContentChange}
+                                hasPrevTool={false}
+                                hasNextTool={false}
+                            />
+                        </FadeInOnReveal>
+                    ),
+                });
 
-        const partsWithTime: Array<{
-            part: Part;
-            index: number;
-            endTime: number | null;
-            element: React.ReactNode;
-        }> = [];
+                // Segments that follow this standalone tool
+                activityGroupSegmentsForMessage
+                    .filter((segment) => segment.afterToolPartId === standaloneToolPart.id)
+                    .forEach((segment) => {
+                        splitAndRenderSegment(segment);
+                    });
+            });
+        }
 
+        // --- Walk visibleParts: collect interleaved text and (when activity
+        //     group is not shown) individual tool/reasoning items ---
         visibleParts.forEach((part, index) => {
+            // Render interleaved text parts (text that appears before/between tools)
+            if (part.type === 'text') {
+                const partId = part.id || `${messageId}-text-${index}`;
+                if (interleavedTextPartIds.has(partId)) {
+                    const text = extractTextContent(part);
+                    if (text && text.trim().length > 0) {
+                        positionedItems.push({
+                            position: index,
+                            isText: true,
+                            element: (
+                                <div
+                                    key={`interleaved-text-${partId}`}
+                                    className="group/assistant-text relative break-words"
+                                >
+                                    <MarkdownRenderer
+                                        content={text}
+                                        part={part}
+                                        messageId={messageId}
+                                        isAnimated={!awaitingMessageCompletion}
+                                        isStreaming={false}
+                                    />
+                                </div>
+                            ),
+                        });
+                    }
+                }
+                return;
+            }
+
+            // If activity group handles this part, skip individual rendering
+            if (shouldRenderActivityGroup) return;
+
             const activity = activityPartsByPart.get(part);
             if (!activity) {
                 return;
@@ -965,9 +1117,6 @@ const AssistantMessageBody: React.FC<Omit<MessageBodyProps, 'isUser'>> = ({
             if (!turnGroupingContext) {
                 return;
             }
-
-            let endTime: number | null = null;
-            let element: React.ReactNode | null = null;
 
             if (!shouldShowActivityGroup) {
                 if (activity.kind === 'tool') {
@@ -988,75 +1137,55 @@ const AssistantMessageBody: React.FC<Omit<MessageBodyProps, 'isUser'>> = ({
 
                     const connection = toolConnections[toolPart.id];
 
-                    const toolElement = (
-                        <FadeInOnReveal key={`tool-${toolPart.id}`}>
-                            <ToolPart
-                                part={toolPart}
-                                isExpanded={expandedTools.has(toolPart.id)}
-                                onToggle={onToggleTool}
-                                syntaxTheme={syntaxTheme}
-                                isMobile={isMobile}
-                                onContentChange={onContentChange}
-                                hasPrevTool={connection?.hasPrev ?? false}
-                                hasNextTool={connection?.hasNext ?? false}
-                            />
-                        </FadeInOnReveal>
-                    );
-
-                    element = toolElement;
-                    endTime = isFinalized && typeof time?.end === 'number' ? time.end : null;
+                    positionedItems.push({
+                        position: index,
+                        isText: false,
+                        element: (
+                            <FadeInOnReveal key={`tool-${toolPart.id}`}>
+                                <ToolPart
+                                    part={toolPart}
+                                    isExpanded={expandedTools.has(toolPart.id)}
+                                    onToggle={onToggleTool}
+                                    syntaxTheme={syntaxTheme}
+                                    isMobile={isMobile}
+                                    onContentChange={onContentChange}
+                                    hasPrevTool={connection?.hasPrev ?? false}
+                                    hasNextTool={connection?.hasNext ?? false}
+                                />
+                            </FadeInOnReveal>
+                        ),
+                    });
                 } else if (activity.kind === 'reasoning' && showReasoningTraces) {
                     // Fallback rendering for reasoning when Activity group isn't shown
-                    const time = (part as { time?: { end?: number | null | undefined } | null | undefined }).time;
-                    const partEndTime = typeof time?.end === 'number' ? time.end : null;
-
-                    const reasoningElement = (
-                        <FadeInOnReveal key={`reasoning-${activity.id}`}>
-                            <ReasoningPart
-                                part={part}
-                                messageId={messageId}
-                                onContentChange={onContentChange}
-                            />
-                        </FadeInOnReveal>
-                    );
-
-                    element = reasoningElement;
-                    endTime = partEndTime;
-                }
-
-                if (element) {
-                    partsWithTime.push({
-                        part,
-                        index,
-                        endTime,
-                        element,
+                    positionedItems.push({
+                        position: index,
+                        isText: false,
+                        element: (
+                            <FadeInOnReveal key={`reasoning-${activity.id}`}>
+                                <ReasoningPart
+                                    part={part}
+                                    messageId={messageId}
+                                    onContentChange={onContentChange}
+                                />
+                            </FadeInOnReveal>
+                        ),
                     });
                 }
             }
         });
 
-        partsWithTime.sort((a, b) => {
-            if (a.endTime === null && b.endTime === null) {
-                return a.index - b.index;
-            }
-            if (a.endTime === null) {
-                return 1;
-            }
-            if (b.endTime === null) {
-                return -1;
-            }
-            return a.endTime - b.endTime;
-        });
+        // --- Sort: text parts maintain strict chronological position;
+        //     consecutive non-text items are sub-sorted by position (which
+        //     preserves their natural order within activity groups). ---
+        positionedItems.sort((a, b) => a.position - b.position);
 
-        partsWithTime.forEach(({ element }) => {
-            rendered.push(element);
-        });
-
-        return rendered;
+        return positionedItems.map(({ element }) => element);
     }, [
         activityPartsByPart,
         activityGroupSegmentsForMessage,
+        awaitingMessageCompletion,
         expandedTools,
+        interleavedTextPartIds,
         isMobile,
         isToolFinalized,
         messageId,
@@ -1109,12 +1238,13 @@ const AssistantMessageBody: React.FC<Omit<MessageBodyProps, 'isUser'>> = ({
         summaryBody &&
         summaryBody.trim().length > 0;
 
-    // Live streaming text: render text parts directly when the summary body
-    // is not yet available (i.e. during streaming, before finish === 'stop').
+    // Live streaming text: render only trailing text parts (after all tools) directly
+    // when the summary body is not yet available (i.e. during streaming, before finish === 'stop').
+    // Interleaved text (before/between tools) is rendered in renderedParts above.
     const liveStreamingText = React.useMemo(() => {
         if (showSummaryBody) return '';
-        return flattenAssistantTextParts(assistantTextParts);
-    }, [showSummaryBody, assistantTextParts]);
+        return flattenAssistantTextParts(trailingTextParts);
+    }, [showSummaryBody, trailingTextParts]);
 
     const showLiveStreamingText = !showSummaryBody && liveStreamingText.trim().length > 0;
 
